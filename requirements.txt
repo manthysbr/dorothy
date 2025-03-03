@@ -1,3 +1,6 @@
 fastapi
 uvicorn
 httpx
+python-dotenv
+langchain
+pydantic>=2.0.0

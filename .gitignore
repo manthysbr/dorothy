@@ -16,3 +16,5 @@ logs/dorothy.log
 app/services/__pycache__/rundeck_service.cpython-310.pyc
 **/**.pyc
 logs/dorothy.log
+app/services/__pycache__/ollama_service.cpython-310.pyc
+app/services/__pycache__/rundeck_service.cpython-310.pyc

@@ -24,7 +24,7 @@ class Settings(BaseSettings):
         "OLLAMA_BASE_URL", 
         "http://localhost:11434"
     )
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.2")
     
     # Rundeck configurações
     RUNDECK_API_URL: str = os.getenv(

@@ -1,10 +1,7 @@
-from pydantic_settings import BaseSettings
-from typing import Dict, Any
 import os
-from dotenv import load_dotenv
+from typing import Dict, Any
 
-# Carrega variáveis de ambiente do arquivo .env
-load_dotenv()
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -18,6 +15,9 @@ class Settings(BaseSettings):
     API_TITLE: str = "Dorothy - API de automação de alertas"
     API_DESCRIPTION: str = "API para automação de alertas do Zabbix usando LLMs"
     API_VERSION: str = "0.1.0"
+    
+    # Logging
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "info")
     
     # Ollama configurações
     OLLAMA_BASE_URL: str = os.getenv(
@@ -34,8 +34,7 @@ class Settings(BaseSettings):
     RUNDECK_TOKEN: str = os.getenv("RUNDECK_TOKEN", "")
     RUNDECK_PROJECT: str = os.getenv("RUNDECK_PROJECT", "dorothy")
     
-    # Configurações de mapeamento de ações
-    # Na prática, isso poderia vir de um banco de dados
+    # Mapeamento de ações para jobs do Rundeck
     ACTION_MAPPING: Dict[str, Dict[str, Any]] = {
         "cleanup-disk": {
             "job_id": os.getenv("RUNDECK_JOB_CLEANUP_DISK", ""),
@@ -60,5 +59,5 @@ class Settings(BaseSettings):
     }
 
 
-# Instância única para uso em toda aplicação
+# Instância global de configurações
 settings = Settings()

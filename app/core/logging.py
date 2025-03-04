@@ -5,8 +5,6 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from app.core.config import settings
-
 
 class LogConfig:
     """
@@ -76,7 +74,7 @@ def configurar_logger(
     # Formatter para os logs
     formatter = logging.Formatter(formato)
     
-    # Handler para console
+    # Handler para console com cores (para melhor visibilidade)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
@@ -96,13 +94,18 @@ def configurar_logger(
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
     
+    # Configurar para registrar chamadas de exceções detalhadas
+    logging.captureWarnings(True)
+    
     return logger
 
 
-# Logger principal da aplicação
+# Inicializar o logger padrão que será importado por outros módulos
+# Usamos a variável de ambiente diretamente para evitar importação circular
+log_level = os.getenv("LOG_LEVEL", "info")
 logger = configurar_logger(
     nome="dorothy",
-    nivel=os.getenv("LOG_LEVEL", "info"),
+    nivel=log_level,
     arquivo="dorothy.log"
 )
 

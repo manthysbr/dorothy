@@ -196,59 +196,156 @@ class OllamaService:
             }
         ]
     
-    async def analyze_alert(self, alert_data: Dict[str, Any]) -> Dict[str, Any]:
+# Modificar o método analyze_alert para adicionar mais logs
+async def analyze_alert(self, alert_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Analisa um alerta usando o modelo do Ollama com function calling.
+    
+    Args:
+        alert_data: Dados do alerta do Zabbix
+        
+    Returns:
+        Dicionário com a análise e ação recomendada
+    """
+    # Log do início da análise
+    logger.info(
+        f"Iniciando análise do alerta para {alert_data.get('host')} "
+        f"com problema: {alert_data.get('problem')}"
+    )
+    logger.debug(f"Modelo utilizado: {self.model}")
+    
+    # Criamos um prompt que explica claramente a tarefa para o modelo
+    system_prompt = self._create_system_prompt()
+    user_prompt = self._create_user_prompt(alert_data)
+    
+    # Log dos prompts para debug
+    logger.debug(f"System prompt: {system_prompt[:200]}...")
+    logger.debug(f"User prompt: {user_prompt[:200]}...")
+    
+    try:
+        logger.info("Enviando requisição para Ollama...")
+        start_time = time.time()
+        
+        async with httpx.AsyncClient() as client:
+            # Configuramos a chamada para usar function calling
+            response = await client.post(
+                f"{self.base_url}/api/chat",
+                json={
+                    "model": self.model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    "tools": self.tools,
+                    "stream": False,
+                    "temperature": 0.1
+                },
+                timeout=60.0
+            )
+            
+            # Log do tempo de resposta
+            processing_time = time.time() - start_time
+            logger.info(f"Ollama respondeu em {processing_time:.2f} segundos")
+            
+            if response.status_code == 200:
+                result = response.json()
+                
+                # Log da resposta bruta do modelo para debug
+                logger.debug(f"Resposta bruta do modelo: {json.dumps(result)}")
+                
+                # Processamos a resposta buscando tool_calls
+                logger.info("Processando resposta do modelo...")
+                return self._process_ollama_response(result, alert_data)
+            else:
+                # Em caso de falha, retornamos uma resposta padrão
+                error_msg = f"Falha ao consultar Ollama: {response.text}"
+                logger.error(error_msg)
+                return self._create_fallback_action(
+                    error_msg, 
+                    alert_data
+                )
+    
+    except Exception as e:
+        error_msg = f"Erro ao processar com Ollama: {str(e)}"
+        logger.exception(error_msg)
+        return self._create_fallback_action(
+            error_msg, 
+            alert_data
+        )
+    
+
+    def _process_ollama_response(
+        self, 
+        result: Dict[str, Any], 
+        alert_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
-        Analisa um alerta usando o modelo do Ollama com function calling.
+        Processa a resposta do Ollama e extrai as funções chamadas pelo modelo.
         
         Args:
-            alert_data: Dados do alerta do Zabbix
+            result: Resposta do Ollama
+            alert_data: Dados do alerta original
             
         Returns:
-            Dicionário com a análise e ação recomendada
+            Ação a ser executada no Rundeck
         """
-        # Criamos um prompt que explica claramente a tarefa para o modelo
-        system_prompt = self._create_system_prompt()
-        user_prompt = self._create_user_prompt(alert_data)
-        
         try:
-            async with httpx.AsyncClient() as client:
-                # Configuramos a chamada para usar function calling
-                response = await client.post(
-                    f"{self.base_url}/api/chat",
-                    json={
-                        "model": self.model,
-                        "messages": [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt}
-                        ],
-                        "tools": self.tools,
-                        "stream": False,
-                        "temperature": 0.1
-                    },
-                    timeout=60.0
+            # Extrai a mensagem de resposta
+            message = result.get("message", {})
+            logger.debug(f"Conteúdo da mensagem: {message.get('content')}")
+            
+            # Verifica se o modelo chamou alguma função
+            tool_calls = message.get("tool_calls", [])
+            
+            if not tool_calls:
+                logger.warning("O modelo não chamou nenhuma função")
+                return self._create_fallback_action(
+                    "O modelo não recomendou nenhuma ação específica",
+                    alert_data
                 )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    # Processamos a resposta buscando tool_calls
-                    return self._process_ollama_response(result, alert_data)
-                else:
-                    # Em caso de falha, retornamos uma resposta padrão
-                    error_msg = f"Falha ao consultar Ollama: {response.text}"
-                    logger.error(error_msg)
-                    return self._create_fallback_action(
-                        error_msg, 
-                        alert_data
-                    )
+            
+            # Log das funções chamadas
+            for i, call in enumerate(tool_calls):
+                logger.info(f"Função chamada #{i+1}: {call.get('function', {}).get('name')}")
+                logger.debug(f"Argumentos: {call.get('function', {}).get('arguments')}")
+            
+            # Vamos considerar apenas a primeira chamada de função
+            first_call = tool_calls[0]
+            function_name = first_call.get("function", {}).get("name")
+            arguments = first_call.get("function", {}).get("arguments", "{}")
+            
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments)
+                except json.JSONDecodeError:
+                    logger.warning("Não foi possível decodificar os argumentos como JSON")
+                    arguments = {}
+            
+            # Log da decisão final
+            logger.info(f"Ação escolhida: {function_name}")
+            logger.info(f"Parâmetros: {arguments}")
+            
+            # Mapeia a função para a ação correspondente
+            action_name = function_name.replace("_", "-")
+            requires_action = action_name != "notify"
+            
+            return {
+                "action": action_name,
+                "requires_action": requires_action,
+                "recommended_job_id": action_name,
+                "job_parameters": arguments,
+                "reason": f"O modelo recomendou {action_name} com base na análise do alerta",
+                "confidence": 0.9,  # Não temos um valor real de confiança
+                "raw_tool_call": first_call  # Incluímos a chamada bruta para referência
+            }
         
         except Exception as e:
-            error_msg = f"Erro ao processar com Ollama: {str(e)}"
-            logger.exception(error_msg)
+            logger.exception(f"Erro ao processar resposta: {str(e)}")
             return self._create_fallback_action(
-                error_msg, 
+                f"Erro ao processar resposta do modelo: {str(e)}",
                 alert_data
             )
-    
+
     def _create_system_prompt(self) -> str:
         """
         Cria um prompt de sistema para o modelo.

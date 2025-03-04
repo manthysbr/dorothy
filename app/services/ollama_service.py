@@ -1,6 +1,6 @@
 import httpx
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from app.core.config import settings
 from app.core.logging import logger, log_erro_integracao
@@ -8,10 +8,10 @@ from app.core.logging import logger, log_erro_integracao
 
 class OllamaService:
     """
-    Serviço para interação com a API do Ollama.
+    Serviço para interação com a API do Ollama utilizando function calling.
     
-    Fornece métodos para enviar prompts ao modelo de IA local
-    e interpretar suas respostas para tomada de decisões.
+    Fornece métodos para enviar prompts ao modelo de IA local e converter
+    as respostas em chamadas de funções para automação de ações.
     """
     
     def __init__(self):
@@ -20,6 +20,9 @@ class OllamaService:
         """
         self.base_url = settings.OLLAMA_BASE_URL
         self.model = settings.OLLAMA_MODEL
+        
+        # Definimos as funções disponíveis e seus schemas
+        self.tools = self._create_tools()
 
     async def check_connection(self) -> Dict[str, Any]:
         """
@@ -56,9 +59,146 @@ class OllamaService:
                 "message": f"Falha na conexão: {str(e)}"
             }
     
+    def _create_tools(self) -> List[Dict[str, Any]]:
+        """
+        Cria a lista de ferramentas (funções) disponíveis para o LLM.
+        
+        Returns:
+            Lista de definições de ferramentas no formato esperado pelo Ollama
+        """
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": "cleanup_disk",
+                    "description": "Executa limpeza de disco quando há "
+                                   "problemas de espaço",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "description": "Caminho do sistema de arquivos "
+                                               "a ser limpo"
+                            },
+                            "min_size": {
+                                "type": "string",
+                                "description": "Tamanho mínimo dos arquivos a "
+                                               "limpar (ex: '100MB')"
+                            },
+                            "file_age": {
+                                "type": "string",
+                                "description": "Idade mínima dos arquivos a "
+                                               "limpar (ex: '7d')"
+                            }
+                        },
+                        "required": ["path"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "restart_service",
+                    "description": "Reinicia um serviço que está parado ou "
+                                   "instável",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "service_name": {
+                                "type": "string", 
+                                "description": "Nome do serviço a ser "
+                                               "reiniciado"
+                            },
+                            "force": {
+                                "type": "boolean",
+                                "description": "Se deve forçar a "
+                                               "reinicialização"
+                            }
+                        },
+                        "required": ["service_name"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "analyze_processes",
+                    "description": "Analisa processos consumindo muitos "
+                                   "recursos",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "resource_type": {
+                                "type": "string",
+                                "description": "Tipo de recurso "
+                                               "(cpu, memory, io)"
+                            },
+                            "top_count": {
+                                "type": "integer",
+                                "description": "Número de processos a listar"
+                            }
+                        },
+                        "required": ["resource_type"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "restart_application",
+                    "description": "Reinicia uma aplicação com problemas de "
+                                   "memória",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "app_name": {
+                                "type": "string",
+                                "description": "Nome da aplicação"
+                            },
+                            "graceful": {
+                                "type": "boolean",
+                                "description": "Se deve aguardar finalização"
+                            },
+                            "timeout": {
+                                "type": "integer",
+                                "description": "Tempo de espera em segundos"
+                            }
+                        },
+                        "required": ["app_name"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "notify",
+                    "description": "Envia notificação para a equipe técnica",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "team": {
+                                "type": "string",
+                                "description": "Equipe a ser notificada"
+                            },
+                            "priority": {
+                                "type": "string",
+                                "description": "Prioridade da notificação"
+                            },
+                            "message": {
+                                "type": "string",
+                                "description": "Mensagem a ser enviada"
+                            }
+                        },
+                        "required": ["message"]
+                    }
+                }
+            }
+        ]
+    
     async def analyze_alert(self, alert_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Analisa um alerta usando o modelo do Ollama.
+        Analisa um alerta usando o modelo do Ollama com function calling.
         
         Args:
             alert_data: Dados do alerta do Zabbix
@@ -72,7 +212,7 @@ class OllamaService:
         
         try:
             async with httpx.AsyncClient() as client:
-                # Para o deepseek-r1:14b, usamos a API de chat
+                # Configuramos a chamada para usar function calling
                 response = await client.post(
                     f"{self.base_url}/api/chat",
                     json={
@@ -81,46 +221,33 @@ class OllamaService:
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_prompt}
                         ],
+                        "tools": self.tools,
                         "stream": False,
-                        "temperature": 0.1,  # Temperatura baixa para respostas mais determinísticas
-                        "top_p": 0.9
+                        "temperature": 0.1
                     },
-                    timeout=60.0  # Aumento do timeout para modelos maiores
+                    timeout=60.0
                 )
                 
                 if response.status_code == 200:
                     result = response.json()
-                    # Para a API de chat, o formato da resposta é diferente
-                    response_text = result.get("message", {}).get("content", "")
-                    analysis = self._parse_ollama_response(response_text)
-                    
-                    # Log da análise para depuração
-                    logger.debug(
-                        f"Análise do alerta para host {alert_data.get('host')}: "
-                        f"{json.dumps(analysis)}"
-                    )
-                    
-                    return analysis
+                    # Processamos a resposta buscando tool_calls
+                    return self._process_ollama_response(result, alert_data)
                 else:
                     # Em caso de falha, retornamos uma resposta padrão
                     error_msg = f"Falha ao consultar Ollama: {response.text}"
                     logger.error(error_msg)
-                    return {
-                        "action": "notify",
-                        "confidence": 0.0,
-                        "reason": error_msg,
-                        "requires_action": False
-                    }
+                    return self._create_fallback_action(
+                        error_msg, 
+                        alert_data
+                    )
         
         except Exception as e:
             error_msg = f"Erro ao processar com Ollama: {str(e)}"
             logger.exception(error_msg)
-            return {
-                "action": "notify",
-                "confidence": 0.0,
-                "reason": error_msg,
-                "requires_action": False
-            }
+            return self._create_fallback_action(
+                error_msg, 
+                alert_data
+            )
     
     def _create_system_prompt(self) -> str:
         """
@@ -134,8 +261,10 @@ class OllamaService:
         automação de respostas a incidentes. Sua tarefa é analisar alertas e
         determinar a ação mais adequada baseada nas informações fornecidas.
         
-        Você deve responder APENAS com um JSON válido, seguindo exatamente o
-        formato solicitado, sem explicações adicionais.
+        Utilize as funções disponíveis para indicar a ação recomendada, 
+        fornecendo os parâmetros corretos.
+        
+        Não adicione explicações adicionais, apenas chame a função adequada.
         """
     
     def _create_user_prompt(self, alert_data: Dict[str, Any]) -> str:
@@ -158,7 +287,7 @@ class OllamaService:
         
         # Prompt formatado com todas as informações relevantes
         return f"""
-        Analise o seguinte alerta do Zabbix e determine a ação mais adequada:
+        Analise o seguinte alerta do Zabbix e determine qual função chamar:
 
         Host: {host}
         Problema: {problem}
@@ -171,72 +300,111 @@ class OllamaService:
         Tags:
         {tags}
         
-        Possíveis ações:
-        1. cleanup-disk: Para problemas de disco cheio
-        2. restart-service: Para serviços parados
-        3. analyze-processes: Para alta utilização de CPU
-        4. restart-application: Para vazamentos de memória
-        5. notify: Caso nenhuma ação automática seja apropriada
-        
-        Responda APENAS com um JSON no seguinte formato:
-        {{
-          "action": "[nome da ação]",
-          "confidence": [valor de 0 a 1],
-          "reason": "[motivo da escolha]",
-          "requires_action": true/false,
-          "recommended_job_id": "[job_id]",
-          "job_parameters": {{
-            "param1": "valor1",
-            "param2": "valor2"
-          }}
-        }}
+        Com base nessas informações, chame a função mais adequada para 
+        resolver o problema. Considere:
+
+        - Para problemas de espaço em disco, use cleanup_disk()
+        - Para serviços parados, use restart_service()
+        - Para uso elevado de CPU, use analyze_processes()
+        - Para problemas de memória, use restart_application()
+        - Se não tiver certeza ou nenhuma ação for adequada, use notify()
         """
     
-    def _parse_ollama_response(self, response_text: str) -> Dict[str, Any]:
+    def _process_ollama_response(
+        self, 
+        result: Dict[str, Any], 
+        alert_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
-        Analisa a resposta do Ollama e extrai as informações necessárias.
+        Processa a resposta do Ollama, extraindo informações de tool_calls.
         
         Args:
-            response_text: Texto da resposta do Ollama
-            
+            result: Resposta completa do Ollama
+            alert_data: Dados originais do alerta
+        
         Returns:
-            Dicionário com os dados extraídos
+            Dicionário com ação recomendada formatada
         """
         try:
-            # Tenta extrair JSON do texto de resposta
-            # Procura por chaves que indicam o início e fim de um JSON
-            start_idx = response_text.find("{")
-            end_idx = response_text.rfind("}") + 1
+            # Extraímos a mensagem da resposta
+            message = result.get("message", {})
             
-            if start_idx >= 0 and end_idx > 0:
-                json_str = response_text[start_idx:end_idx]
-                result = json.loads(json_str)
+            # Verificamos se há tool_calls na resposta
+            tool_calls = message.get("tool_calls", [])
+            
+            if not tool_calls:
+                logger.warning("Nenhuma ferramenta foi chamada pelo modelo")
+                return self._create_fallback_action(
+                    "LLM não sugeriu nenhuma ação", 
+                    alert_data
+                )
+            
+            # Pegamos a primeira chamada de ferramenta (a mais relevante)
+            tool_call = tool_calls[0]
+            function_call = tool_call.get("function", {})
+            
+            # Extraímos nome e argumentos da função
+            function_name = function_call.get("name")
+            function_args = json.loads(
+                function_call.get("arguments", "{}")
+            )
+            
+            if not function_name:
+                logger.warning("Nome da função não encontrado na resposta")
+                return self._create_fallback_action(
+                    "Resposta inválida do LLM", 
+                    alert_data
+                )
+            
+            # Convertemos para o formato esperado pelo sistema
+            return {
+                "action": function_name,
+                "requires_action": function_name != "notify",
+                "recommended_job_id": function_name,
+                "job_parameters": function_args,
+                "reason": (
+                    f"Função {function_name} recomendada pelo LLM"
+                ),
+                "confidence": 0.9  # Confiança alta para function calling
+            }
                 
-                # Garantir que campos obrigatórios existem
-                if "action" not in result:
-                    result["action"] = "notify"
-                if "confidence" not in result:
-                    result["confidence"] = 0.5
-                if "requires_action" not in result:
-                    result["requires_action"] = False
-                    
-                return result
+        except Exception as e:
+            logger.error(f"Erro ao processar resposta do Ollama: {str(e)}")
+            return self._create_fallback_action(
+                f"Erro ao processar resposta: {str(e)}", 
+                alert_data
+            )
+    
+    def _create_fallback_action(
+        self, 
+        reason: str, 
+        alert_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Cria uma ação de fallback para casos de erro.
+        
+        Args:
+            reason: Motivo para o fallback
+            alert_data: Dados do alerta original
             
-            # Se não conseguir extrair um JSON válido, retorna resposta padrão
-            return {
-                "action": "notify",
-                "confidence": 0.5,
-                "reason": "Não foi possível determinar ação automática.",
-                "requires_action": False
-            }
-            
-        except json.JSONDecodeError as e:
-            # Em caso de falha na decodificação do JSON
-            logger.error(f"Erro ao decodificar resposta JSON: {str(e)}")
-            logger.debug(f"Resposta original: {response_text}")
-            return {
-                "action": "notify",
-                "confidence": 0.0,
-                "reason": "Falha ao interpretar resposta do modelo.",
-                "requires_action": False
-            }
+        Returns:
+            Ação de notificação formatada
+        """
+        host = alert_data.get('host', 'desconhecido')
+        problem = alert_data.get('problem', 'Sem descrição')
+        
+        return {
+            "action": "notify",
+            "requires_action": True,
+            "recommended_job_id": "notify",
+            "job_parameters": {
+                "team": "operations",
+                "priority": "high",
+                "message": (
+                    f"Falha na automação para alerta em {host}: {problem}. "
+                    f"Motivo: {reason}"
+                )
+            },
+            "reason": reason,
+            "confidence": 0.0
+        }

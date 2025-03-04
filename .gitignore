@@ -12,3 +12,7 @@ app/api/routes/__pycache__/zabbix.cpython-310.pyc
 app/core/__pycache__/config.cpython-310.pyc
 app/core/__pycache__/logging.cpython-310.pyc
 app/models/__pycache__/zabbix.cpython-310.pyc
+logs/dorothy.log
+app/services/__pycache__/rundeck_service.cpython-310.pyc
+**/**.pyc
+logs/dorothy.log

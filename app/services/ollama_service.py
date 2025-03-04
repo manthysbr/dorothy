@@ -356,7 +356,7 @@ class OllamaService:
                     alert_data
                 )
             
-            # Convertemos para o formato esperado pelo sistema
+            
             return {
                 "action": function_name,
                 "requires_action": function_name != "notify",
@@ -365,7 +365,7 @@ class OllamaService:
                 "reason": (
                     f"Função {function_name} recomendada pelo LLM"
                 ),
-                "confidence": 0.9  # Confiança alta para function calling
+                "confidence": 0.9 
             }
                 
         except Exception as e:

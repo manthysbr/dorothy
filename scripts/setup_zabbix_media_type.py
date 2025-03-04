@@ -19,24 +19,12 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def setup_media_type(zabbix_url, username, password, api_url):
-    """
-    Configura um tipo de mídia WebHook no Zabbix para a Dorothy API.
-    
-    Args:
-        zabbix_url: URL da API do Zabbix
-        username: Nome de usuário do Zabbix
-        password: Senha do Zabbix
-        api_url: URL da API Dorothy
-    """
     print(f"Conectando ao Zabbix em {zabbix_url}...")
-    
     try:
-        # Conectar à API do Zabbix
         zapi = ZabbixAPI(zabbix_url)
         zapi.login(username, password)
         print(f"Conectado ao Zabbix API v.{zapi.api_version()}")
         
-        # Verificar se o tipo de mídia já existe
         existing = zapi.mediatype.get(filter={"name": "Dorothy API"})
         if existing:
             print("Tipo de mídia 'Dorothy API' já existe. Atualizando...")
@@ -46,7 +34,6 @@ def setup_media_type(zabbix_url, username, password, api_url):
             media_id = None
             action = "criado"
         
-        # Parâmetros para o webhook
         params = {
             "endpoint": api_url + "/api/v1/zabbix/alert",
             "event_id": "{EVENT.ID}",
@@ -67,11 +54,10 @@ def setup_media_type(zabbix_url, username, password, api_url):
             ]
         }
         
-        # Configuração do tipo de mídia
         mediatype = {
             "name": "Dorothy API",
-            "type": 4,  # 4 = webhook
-            "status": 0,  # 0 = enabled
+            "type": 4,
+            "status": 0,
             "parameters": [
                 {"name": "URL", "value": api_url + "/api/v1/zabbix/alert"},
                 {"name": "HTTPProxy", "value": ""},
@@ -83,19 +69,17 @@ def setup_media_type(zabbix_url, username, password, api_url):
             "description": "Tipo de mídia para enviar alertas para a API Dorothy",
             "message_templates": [
                 {
-                    "event_source": 0,  # triggers
+                    # Removido "event_source"
                     "operation_mode": 0,  # problem
                     "subject": "Problema: {EVENT.NAME}",
                     "message": generate_message_template()
                 },
                 {
-                    "event_source": 0,  # triggers
                     "operation_mode": 1,  # recovery
                     "subject": "Resolvido: {EVENT.NAME}",
                     "message": generate_message_template()
                 },
                 {
-                    "event_source": 0,  # triggers
                     "operation_mode": 2,  # update
                     "subject": "Atualização: {EVENT.NAME}",
                     "message": generate_message_template()
@@ -103,7 +87,6 @@ def setup_media_type(zabbix_url, username, password, api_url):
             ]
         }
         
-        # Criar ou atualizar o tipo de mídia
         if media_id:
             mediatype["mediatypeid"] = media_id
             result = zapi.mediatype.update(**mediatype)
@@ -112,7 +95,6 @@ def setup_media_type(zabbix_url, username, password, api_url):
         
         print(f"Tipo de mídia 'Dorothy API' {action} com sucesso!")
         
-        # Criar a ação para o tipo de mídia (se ainda não existir)
         setup_action(zapi, result if not media_id else media_id)
         
     except Exception as e:
@@ -120,7 +102,12 @@ def setup_media_type(zabbix_url, username, password, api_url):
         sys.exit(1)
     finally:
         if 'zapi' in locals():
-            zapi.logout()
+            try:
+                # Utilize zapi.user.logout() ou apenas zapi.logout dependendo da versão
+                zapi.user.logout()
+            except Exception as ex:
+                print(f"Erro ao finalizar a sessão: {ex}")
+
 
 
 def generate_webhook_script(params):

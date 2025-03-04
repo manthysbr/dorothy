@@ -25,7 +25,7 @@ docker run -it --rm \
   -p 8000:8000 \
   -e LOG_LEVEL=debug \
   -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
-  -e OLLAMA_MODEL=deepseek-r1:14b \
+  -e OLLAMA_MODEL=llama3.2 \
   --add-host=host.docker.internal:host-gateway \
   --name dorothy-api \
   dorothy-api

@@ -52,14 +52,52 @@ services:
     networks:
       - zabbix-network
 
-  # API Dorothy - Alterado para usar a imagem já construída
+  # Agente Zabbix para monitorar o próprio servidor
+  zabbix-agent-server:
+    image: zabbix/zabbix-agent2:ubuntu-7.0-latest
+    container_name: zabbix-agent-server
+    hostname: zabbix-server
+    depends_on:
+      - zabbix-server
+    environment:
+      ZBX_HOSTNAME: Zabbix-Server
+      ZBX_SERVER_HOST: zabbix-server
+    restart: unless-stopped
+    privileged: true
+    networks:
+      - zabbix-network
+
+  # Agente Zabbix para simular problemas
+  zabbix-agent-simulator:
+    build:
+      context: ./docker/zabbix-agent-simulator
+      dockerfile: Dockerfile
+    container_name: zabbix-agent-simulator
+    hostname: simulator
+    depends_on:
+      - zabbix-server
+    environment:
+      ZBX_HOSTNAME: Problem-Simulator
+      ZBX_SERVER_HOST: zabbix-server
+      ZBX_ACTIVE_SERVER: zabbix-server
+    volumes:
+      - simulator-scripts:/etc/zabbix/scripts
+    ports:
+      - "10050:10050"
+    restart: unless-stopped
+    privileged: true  # Necessário para alguns comandos de simulação
+    networks:
+      - zabbix-network
+      - dorothy-network
+
+  # API Dorothy
   dorothy-api:
     image: dorothy-api
     container_name: dorothy-api
     environment:
       - LOG_LEVEL=debug
       - OLLAMA_BASE_URL=http://ollama:11434
-      - OLLAMA_MODEL=llama3
+      - OLLAMA_MODEL=llama3.2
     ports:
       - "8000:8000"
     networks:
@@ -79,7 +117,7 @@ services:
     networks:
       - dorothy-network
     restart: unless-stopped
-    command: sh -c "ollama serve & sleep 10 && ollama pull llama3 && tail -f /dev/null"
+    command: serve
 
 networks:
   zabbix-network:
@@ -90,3 +128,4 @@ networks:
 volumes:
   postgres-data:
   ollama-data:
+  simulator-scripts:

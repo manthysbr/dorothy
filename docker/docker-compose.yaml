@@ -3,7 +3,7 @@ services:
   zabbix-postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_PASSWORD: zabbix
+      POSTGRES_PASSWORD: 
       POSTGRES_USER: zabbix
       POSTGRES_DB: zabbix
     volumes:
@@ -19,7 +19,7 @@ services:
     environment:
       DB_SERVER_HOST: zabbix-postgres
       POSTGRES_USER: zabbix
-      POSTGRES_PASSWORD: zabbix
+      POSTGRES_PASSWORD: 
       POSTGRES_DB: zabbix
       ZBX_TIMEOUT: 30
     volumes:
@@ -39,7 +39,7 @@ services:
     environment:
       DB_SERVER_HOST: zabbix-postgres
       POSTGRES_USER: zabbix
-      POSTGRES_PASSWORD: zabbix
+      POSTGRES_PASSWORD: 
       POSTGRES_DB: zabbix
       ZBX_SERVER_HOST: zabbix-server
       PHP_TZ: America/Sao_Paulo
@@ -53,10 +53,10 @@ services:
   rundeck-mariadb:
     image: mariadb:10.6
     environment:
-      MYSQL_ROOT_PASSWORD: rundeck
+      MYSQL_ROOT_PASSWORD: 
       MYSQL_DATABASE: rundeck
       MYSQL_USER: rundeck
-      MYSQL_PASSWORD: rundeck
+      MYSQL_PASSWORD: 
     volumes:
       - rundeck-mariadb-data:/var/lib/mysql
     networks:
@@ -70,7 +70,7 @@ services:
     environment:
       RUNDECK_DATABASE_DRIVER: org.mariadb.jdbc.Driver
       RUNDECK_DATABASE_USERNAME: rundeck
-      RUNDECK_DATABASE_PASSWORD: rundeck
+      RUNDECK_DATABASE_PASSWORD: 
       RUNDECK_DATABASE_URL: jdbc:mysql://rundeck-mariadb/rundeck?autoReconnect=true&useSSL=false
       RUNDECK_GRAILS_URL: http://localhost:4440
     volumes:

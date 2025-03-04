@@ -1,7 +1,7 @@
-fastapi
-uvicorn
-httpx
-python-dotenv
+fastapi>=0.95.0
+uvicorn>=0.22.0
+httpx>=0.24.0
+python-dotenv>=1.0.0
 pydantic>=2.0.0
-pydantic-settings
-aiohttp
+pydantic-settings>=2.0.0
+aiohttp>=3.8.5

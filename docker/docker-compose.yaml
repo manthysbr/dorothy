@@ -1,91 +1,79 @@
 services:
-  # Serviços do Zabbix
-  zabbix-postgres:
+  # PostgreSQL para o Zabbix (mais leve que MySQL para uso local)
+  postgres:
     image: postgres:15-alpine
+    container_name: zabbix-postgres
     environment:
-      POSTGRES_PASSWORD: 
+      POSTGRES_PASSWORD: zabbix
       POSTGRES_USER: zabbix
       POSTGRES_DB: zabbix
     volumes:
-      - zabbix-postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
     networks:
       - zabbix-network
-    restart: unless-stopped
 
+  # Servidor Zabbix
   zabbix-server:
-    image: zabbix/zabbix-server-pgsql:ubuntu-6.4-latest
+    image: zabbix/zabbix-server-pgsql:ubuntu-7.0-latest
+    container_name: zabbix-server
     depends_on:
-      - zabbix-postgres
+      - postgres
     environment:
-      DB_SERVER_HOST: zabbix-postgres
+      DB_SERVER_HOST: postgres
       POSTGRES_USER: zabbix
-      POSTGRES_PASSWORD: 
+      POSTGRES_PASSWORD: zabbix
       POSTGRES_DB: zabbix
       ZBX_TIMEOUT: 30
-    volumes:
-      - ./zabbix/zabbix_server.conf:/etc/zabbix/zabbix_server.conf:ro
     ports:
       - "10051:10051"
+    restart: unless-stopped
     networks:
       - zabbix-network
       - dorothy-network
-    restart: unless-stopped
 
+  # Interface Web do Zabbix
   zabbix-web:
-    image: zabbix/zabbix-web-nginx-pgsql:ubuntu-6.4-latest
+    image: zabbix/zabbix-web-apache-pgsql:ubuntu-7.0-latest
+    container_name: zabbix-web
     depends_on:
-      - zabbix-postgres
+      - postgres
       - zabbix-server
     environment:
-      DB_SERVER_HOST: zabbix-postgres
+      DB_SERVER_HOST: postgres
       POSTGRES_USER: zabbix
-      POSTGRES_PASSWORD: 
+      POSTGRES_PASSWORD: zabbix
       POSTGRES_DB: zabbix
       ZBX_SERVER_HOST: zabbix-server
       PHP_TZ: America/Sao_Paulo
     ports:
-      - "8081:8080"
+      - "8080:8080"
+    restart: unless-stopped
     networks:
       - zabbix-network
-    restart: unless-stopped
 
-  # Serviços do Rundeck
-  rundeck-mariadb:
-    image: mariadb:10.6
+  # API Dorothy
+  dorothy-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dorothy-api
     environment:
-      MYSQL_ROOT_PASSWORD: 
-      MYSQL_DATABASE: rundeck
-      MYSQL_USER: rundeck
-      MYSQL_PASSWORD: 
-    volumes:
-      - rundeck-mariadb-data:/var/lib/mysql
-    networks:
-      - rundeck-network
-    restart: unless-stopped
-
-  rundeck:
-    image: rundeck/rundeck:4.17.1
-    depends_on:
-      - rundeck-mariadb
-    environment:
-      RUNDECK_DATABASE_DRIVER: org.mariadb.jdbc.Driver
-      RUNDECK_DATABASE_USERNAME: rundeck
-      RUNDECK_DATABASE_PASSWORD: 
-      RUNDECK_DATABASE_URL: jdbc:mysql://rundeck-mariadb/rundeck?autoReconnect=true&useSSL=false
-      RUNDECK_GRAILS_URL: http://localhost:4440
-    volumes:
-      - rundeck-data:/home/rundeck/server/data
-      - ./rundeck/rundeck-config.properties:/home/rundeck/server/config/rundeck-config.properties:ro
+      - LOG_LEVEL=debug
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3
     ports:
-      - "4440:4440"
+      - "8000:8000"
     networks:
-      - rundeck-network
       - dorothy-network
     restart: unless-stopped
+    depends_on:
+      - ollama
 
-  # Serviços da API Dorothy
+  # Ollama para LLMs locais
   ollama:
     image: ollama/ollama:latest
+    container_name: ollama
     volumes:
       - ollama-data:/root/.ollama
     ports:
@@ -93,38 +81,15 @@ services:
     networks:
       - dorothy-network
     restart: unless-stopped
-
-  dorothy-api:
-    build:
-      context: ../
-      dockerfile: docker/dorothy/Dockerfile
-    depends_on:
-      - ollama
-    environment:
-      OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_MODEL: deepseek-r1:14b
-      RUNDECK_API_URL: http://rundeck:4440/api/41
-      RUNDECK_TOKEN: ${RUNDECK_TOKEN:-admin}
-      RUNDECK_PROJECT: dorothy
-      LOG_LEVEL: debug
-    ports:
-      - "8000:8000"
-    networks:
-      - dorothy-network
-    volumes:
-      - ../:/app
-    restart: unless-stopped
+    # Comando para pré-carregar o modelo
+    command: sh -c "ollama serve & sleep 10 && ollama pull llama3 && tail -f /dev/null"
 
 networks:
   zabbix-network:
-    driver: bridge
-  rundeck-network:
     driver: bridge
   dorothy-network:
     driver: bridge
 
 volumes:
-  zabbix-postgres-data:
-  rundeck-mariadb-data:
-  rundeck-data:
+  postgres-data:
   ollama-data:

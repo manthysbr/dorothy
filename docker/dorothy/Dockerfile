@@ -7,19 +7,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Primeiro copiamos apenas os requirements para aproveitar o cache do Docker
+# Instalar dependências
 COPY requirements.txt .
-
-# Instalamos as dependências
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Agora copiamos o resto do código
+# Copiar código da aplicação
 COPY . .
 
-# Criamos diretório para logs
-RUN mkdir -p logs
+# Criar diretório para logs
+RUN mkdir -p logs && chmod 777 logs
 
-# Porta da aplicação
+# Expor porta
 EXPOSE 8000
 
 # Comando para iniciar a aplicação

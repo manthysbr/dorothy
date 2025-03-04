@@ -69,18 +69,17 @@ def setup_media_type(zabbix_url, username, password, api_url):
             "description": "Tipo de mídia para enviar alertas para a API Dorothy",
             "message_templates": [
                 {
-                    # Removido "event_source"
-                    "operation_mode": 0,  # problem
+                    "event_source": 0,  # triggers
                     "subject": "Problema: {EVENT.NAME}",
                     "message": generate_message_template()
                 },
                 {
-                    "operation_mode": 1,  # recovery
+                    "event_source": 0,  # triggers
                     "subject": "Resolvido: {EVENT.NAME}",
                     "message": generate_message_template()
                 },
                 {
-                    "operation_mode": 2,  # update
+                    "event_source": 0,  # triggers
                     "subject": "Atualização: {EVENT.NAME}",
                     "message": generate_message_template()
                 }

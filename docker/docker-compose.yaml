@@ -70,7 +70,7 @@ services:
   # Agente Zabbix para simular problemas
   zabbix-agent-simulator:
     build:
-      context: ./docker/zabbix-agent-simulator
+      context: ../host
       dockerfile: Dockerfile
     container_name: zabbix-agent-simulator
     hostname: simulator
@@ -81,7 +81,7 @@ services:
       ZBX_SERVER_HOST: zabbix-server
       ZBX_ACTIVE_SERVER: zabbix-server
     volumes:
-      - simulator-scripts:/etc/zabbix/scripts
+      - ../host:/etc/zabbix/scripts
     ports:
       - "10050:10050"
     restart: unless-stopped

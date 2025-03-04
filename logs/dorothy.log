@@ -1,0 +1,7 @@
+2025-03-04 11:11:47,970 |     INFO | Iniciando API Dorothy v0.1.0
+2025-03-04 11:12:06,210 |     INFO | Requisição GET / | IP: 127.0.0.1 | Dados: -
+2025-03-04 11:12:06,244 |     INFO | Requisição GET /favicon.ico | IP: 127.0.0.1 | Dados: -
+2025-03-04 11:12:14,600 |     INFO | Requisição GET /api | IP: 127.0.0.1 | Dados: -
+2025-03-04 11:12:24,190 |     INFO | Requisição GET /docs | IP: 127.0.0.1 | Dados: -
+2025-03-04 11:12:25,104 |     INFO | Requisição GET /openapi.json | IP: 127.0.0.1 | Dados: -
+2025-03-04 11:16:48,193 |     INFO | API Dorothy finalizada

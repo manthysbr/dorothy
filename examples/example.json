@@ -1,0 +1,20 @@
+{
+    "event_id": "12345",
+    "host": "servidor-web-01",
+    "problem": "Espaço em disco crítico: 95% utilizado em /var",
+    "severity": "high",
+    "timestamp": 1709558400,
+    "item_id": "54321",
+    "trigger_id": "98765",
+    "status": "PROBLEM",
+    "details": {
+      "free_space": "500MB",
+      "total_space": "10GB",
+      "filesystem": "/var",
+      "mount_point": "/var"
+    },
+    "tags": [
+      {"tag": "service", "value": "web"},
+      {"tag": "environment", "value": "production"}
+    ]
+  }

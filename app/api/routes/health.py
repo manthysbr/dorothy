@@ -102,41 +102,28 @@ async def _check_services(
     services_status = []
     
     # Verificar Ollama
-    ollama_status = {
-        "name": "ollama",
-        "status": "unknown",
-        "message": ""
-    }
-    
     try:
-        # Aqui poderia ter uma chamada para verificar a conexão
-        # com o Ollama, como um método ping no OllamaService
-        ollama_status["status"] = "operational"
-        ollama_status["message"] = "Conexão com Ollama estabelecida"
-        
+        ollama_status = await ollama_service.check_connection()
     except Exception as e:
         logger.error(f"Falha na verificação do Ollama: {str(e)}")
-        ollama_status["status"] = "error"
-        ollama_status["message"] = f"Falha na conexão: {str(e)}"
+        ollama_status = {
+            "name": "ollama",
+            "status": "error",
+            "message": f"Falha na conexão: {str(e)}"
+        }
     
     services_status.append(ollama_status)
     
     # Verificar Rundeck
-    rundeck_status = {
-        "name": "rundeck",
-        "status": "unknown",
-        "message": ""
-    }
-    
     try:
-        # Aqui poderia ter uma chamada para verificar o Rundeck
-        rundeck_status["status"] = "operational"
-        rundeck_status["message"] = "Conexão com Rundeck estabelecida"
-        
+        rundeck_status = await rundeck_service.check_connection()
     except Exception as e:
         logger.error(f"Falha na verificação do Rundeck: {str(e)}")
-        rundeck_status["status"] = "error"
-        rundeck_status["message"] = f"Falha na conexão: {str(e)}"
+        rundeck_status = {
+            "name": "rundeck",
+            "status": "error",
+            "message": f"Falha na conexão: {str(e)}"
+        }
     
     services_status.append(rundeck_status)
     

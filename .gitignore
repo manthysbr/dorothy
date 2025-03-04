@@ -4,3 +4,11 @@
 .vscode/settings.json
 .github/copilot-instructions.md
 .env
+__pycache__/main.cpython-310.pyc
+.gitignore
+app/__pycache__/__init__.cpython-310.pyc
+app/api/routes/__pycache__/health.cpython-310.pyc
+app/api/routes/__pycache__/zabbix.cpython-310.pyc
+app/core/__pycache__/config.cpython-310.pyc
+app/core/__pycache__/logging.cpython-310.pyc
+app/models/__pycache__/zabbix.cpython-310.pyc

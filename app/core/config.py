@@ -1,34 +1,64 @@
+from pydantic_settings import BaseSettings
+from typing import Dict, Any
 import os
 from dotenv import load_dotenv
-from pydantic import BaseModel
 
 # Carrega variáveis de ambiente do arquivo .env
 load_dotenv()
 
-class Settings(BaseModel):
+
+class Settings(BaseSettings):
     """
-    Configurações da aplicação armazenadas de forma centralizada.
-    Utiliza variáveis de ambiente para maior segurança.
-    """
-    APP_NAME: str = "Dorothy - Automação Inteligente"
-    API_V1_STR: str = "/api/v1"
+    Configurações da aplicação, carregadas de variáveis de ambiente.
     
-    # Configurações do Ollama
-    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    Para desenvolvimento, use um arquivo .env na raiz do projeto.
+    Para produção, configure as variáveis de ambiente no sistema.
+    """
+    # API configurações
+    API_TITLE: str = "Dorothy - API de automação de alertas"
+    API_DESCRIPTION: str = "API para automação de alertas do Zabbix usando LLMs"
+    API_VERSION: str = "0.1.0"
+    
+    # Ollama configurações
+    OLLAMA_BASE_URL: str = os.getenv(
+        "OLLAMA_BASE_URL", 
+        "http://localhost:11434"
+    )
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3")
     
-    # Configurações do Rundeck
-    RUNDECK_URL: str = os.getenv("RUNDECK_URL", "")
+    # Rundeck configurações
+    RUNDECK_API_URL: str = os.getenv(
+        "RUNDECK_API_URL", 
+        "http://localhost:4440/api/41"
+    )
     RUNDECK_TOKEN: str = os.getenv("RUNDECK_TOKEN", "")
-    RUNDECK_PROJECT: str = os.getenv("RUNDECK_PROJECT", "")
+    RUNDECK_PROJECT: str = os.getenv("RUNDECK_PROJECT", "dorothy")
     
-    # Mapeamento de problemas para jobs do Rundeck
+    # Configurações de mapeamento de ações
     # Na prática, isso poderia vir de um banco de dados
-    ALERT_TO_JOB_MAPPING: dict = {
-        "disk_full": "cleanup-disk",
-        "service_down": "restart-service",
-        "high_cpu": "analyze-processes",
-        "memory_leak": "restart-application"
+    ACTION_MAPPING: Dict[str, Dict[str, Any]] = {
+        "cleanup-disk": {
+            "job_id": os.getenv("RUNDECK_JOB_CLEANUP_DISK", ""),
+            "description": "Limpa espaço em disco"
+        },
+        "restart-service": {
+            "job_id": os.getenv("RUNDECK_JOB_RESTART_SERVICE", ""),
+            "description": "Reinicia um serviço parado"
+        },
+        "analyze-processes": {
+            "job_id": os.getenv("RUNDECK_JOB_ANALYZE_PROCESSES", ""),
+            "description": "Analisa processos consumindo muita CPU"
+        },
+        "restart-application": {
+            "job_id": os.getenv("RUNDECK_JOB_RESTART_APPLICATION", ""),
+            "description": "Reinicia uma aplicação com vazamento de memória"
+        },
+        "notify": {
+            "job_id": os.getenv("RUNDECK_JOB_NOTIFY", ""),
+            "description": "Envia notificação para equipe"
+        }
     }
 
+
+# Instância única para uso em toda aplicação
 settings = Settings()

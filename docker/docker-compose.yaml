@@ -12,7 +12,7 @@ services:
     restart: unless-stopped
     networks:
       - zabbix-network
-
+      
   # Servidor Zabbix
   zabbix-server:
     image: zabbix/zabbix-server-pgsql:ubuntu-7.0-latest
@@ -51,6 +51,7 @@ services:
     restart: unless-stopped
     networks:
       - zabbix-network
+      - dorothy-network
 
   # Agente Zabbix para monitorar o próprio servidor
   zabbix-agent-server:
@@ -66,6 +67,7 @@ services:
     privileged: true
     networks:
       - zabbix-network
+      - dorothy-network
 
   # Agente Zabbix para simular problemas
   zabbix-agent-simulator:
@@ -85,7 +87,7 @@ services:
     ports:
       - "10050:10050"
     restart: unless-stopped
-    privileged: true  # Necessário para alguns comandos de simulação
+    privileged: true  
     networks:
       - zabbix-network
       - dorothy-network
@@ -102,6 +104,7 @@ services:
       - "8000:8000"
     networks:
       - dorothy-network
+      - zabbix-network  
     restart: unless-stopped
     depends_on:
       - ollama

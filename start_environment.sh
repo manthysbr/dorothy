@@ -26,16 +26,16 @@ mkdir -p logs
 
 # Construir imagem da API Dorothy
 echo -e "${YELLOW}Construindo imagem da API Dorothy...${NC}"
-docker build -t dorothy-api .
+docker build -t dorothy-api -f docker/dorothy/Dockerfile .
 
 # Iniciar contêineres
 echo -e "${YELLOW}Iniciando contêineres...${NC}"
-docker compose up -d
+docker compose -f docker/docker-compose.yaml up -d
 
 # Verificar status dos contêineres
 echo -e "${YELLOW}Verificando status dos contêineres...${NC}"
 sleep 5
-docker compose ps
+docker compose -f docker/docker-compose.yaml ps
 
 # Aguardar o serviço Ollama baixar o modelo
 echo -e "${YELLOW}Aguardando o Ollama baixar o modelo llama3...${NC}"

@@ -52,11 +52,9 @@ services:
     networks:
       - zabbix-network
 
-  # API Dorothy
+  # API Dorothy - Alterado para usar a imagem já construída
   dorothy-api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: dorothy-api
     container_name: dorothy-api
     environment:
       - LOG_LEVEL=debug
@@ -81,7 +79,6 @@ services:
     networks:
       - dorothy-network
     restart: unless-stopped
-    # Comando para pré-carregar o modelo
     command: sh -c "ollama serve & sleep 10 && ollama pull llama3 && tail -f /dev/null"
 
 networks:

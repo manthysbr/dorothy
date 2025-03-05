@@ -15,11 +15,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 def add_simulator_host(zabbix_url, username, password):
     """
     Adiciona o host simulador ao Zabbix.
-    
-    Args:
-        zabbix_url: URL da API do Zabbix
-        username: Nome de usuário do Zabbix
-        password: Senha do Zabbix
     """
     print(f"Conectando ao Zabbix em {zabbix_url}...")
     
@@ -73,7 +68,7 @@ def add_simulator_host(zabbix_url, username, password):
                     "templateid": template_id
                 }
             ],
-            "inventory_mode": 0,  # 0 = manual
+            "inventory_mode": 0,
             "description": "Host para simulação de problemas",
             "inventory": {
                 "type": "Virtual machine",
@@ -91,8 +86,7 @@ def add_simulator_host(zabbix_url, username, password):
         print(f"Erro ao adicionar host: {str(e)}")
         sys.exit(1)
     finally:
-        if 'zapi' in locals():
-            zapi.logout()
+        pass
 
 
 def add_custom_items(zapi, host_id):

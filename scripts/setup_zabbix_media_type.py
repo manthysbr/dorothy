@@ -19,6 +19,9 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def setup_media_type(zabbix_url, username, password, api_url):
+    """
+    Configura o tipo de mídia webhook para Dorothy API no Zabbix.
+    """
     print(f"Conectando ao Zabbix em {zabbix_url}...")
     try:
         zapi = ZabbixAPI(zabbix_url)
@@ -54,10 +57,11 @@ def setup_media_type(zabbix_url, username, password, api_url):
             ]
         }
         
+        # Definição do tipo de mídia com estrutura correta para API v7.0
         mediatype = {
             "name": "Dorothy API",
-            "type": 4,
-            "status": 0,
+            "type": 4,  # 4 = Webhook
+            "status": 0,  # 0 = Habilitado
             "parameters": [
                 {"name": "URL", "value": api_url + "/api/v1/zabbix/alert"},
                 {"name": "HTTPProxy", "value": ""},
@@ -67,19 +71,23 @@ def setup_media_type(zabbix_url, username, password, api_url):
             ],
             "script": generate_webhook_script(params),
             "description": "Tipo de mídia para enviar alertas para a API Dorothy",
+            # Estrutura correta conforme documentação do Zabbix 7.0
             "message_templates": [
                 {
-                    "event_source": 0,  # triggers
-                    "subject": "Problema: {EVENT.NAME}",
+                    "eventsource": "0",  # 0 = triggers
+                    "recovery": "0",     # 0 = problema
+                    "subject": "Alerta: {EVENT.NAME}",
                     "message": generate_message_template()
                 },
                 {
-                    "event_source": 0,  # triggers
-                    "subject": "Resolvido: {EVENT.NAME}",
+                    "eventsource": "0",  # 0 = triggers
+                    "recovery": "1",     # 1 = recuperação
+                    "subject": "Resolução: {EVENT.NAME}",
                     "message": generate_message_template()
                 },
                 {
-                    "event_source": 0,  # triggers
+                    "eventsource": "0",  # 0 = triggers
+                    "recovery": "2",     # 2 = atualização
                     "subject": "Atualização: {EVENT.NAME}",
                     "message": generate_message_template()
                 }
@@ -102,8 +110,7 @@ def setup_media_type(zabbix_url, username, password, api_url):
     finally:
         if 'zapi' in locals():
             try:
-                # Utilize zapi.user.logout() ou apenas zapi.logout dependendo da versão
-                zapi.user.logout()
+                zapi.logout()
             except Exception as ex:
                 print(f"Erro ao finalizar a sessão: {ex}")
 

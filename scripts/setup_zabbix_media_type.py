@@ -108,12 +108,7 @@ def setup_media_type(zabbix_url, username, password, api_url):
         print(f"Erro ao configurar tipo de mídia: {str(e)}")
         sys.exit(1)
     finally:
-        if 'zapi' in locals():
-            try:
-                zapi.logout()
-            except Exception as ex:
-                print(f"Erro ao finalizar a sessão: {ex}")
-
+        pass
 
 
 def generate_webhook_script(params):

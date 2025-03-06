@@ -140,7 +140,7 @@ services:
       MYSQL_ROOT_PASSWORD: rundeckrootpw
       MYSQL_DATABASE: rundeck
       MYSQL_USER: rundeck
-      MYSQL_PASSWORD: rundeck
+      MYSQL_PASSWORD: #####
     volumes:
       - rundeck-db:/var/lib/mysql
     restart: unless-stopped

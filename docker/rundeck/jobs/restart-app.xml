@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<joblist>
+  <job>
+    <id>restart-application</id>
+    <name>Reiniciar Aplicação</name>
+    <description>Reinicia uma aplicação com problemas de memória ou performance</description>
+    <group>automated-ops</group>
+    <context>
+      <project>automated-ops</project>
+      <options>
+        <option name="app_name" required="true">
+          <description>Nome da aplicação a ser reiniciada</description>
+        </option>
+        <option name="graceful" value="true">
+          <description>Se deve aguardar finalização normal</description>
+          <values>true,false</values>
+        </option>
+        <option name="timeout" value="30">
+          <description>Tempo de espera em segundos</description>
+        </option>
+      </options>
+    </context>
+    <dispatch>
+      <threadcount>1</threadcount>
+      <keepgoing>false</keepgoing>
+    </dispatch>
+    <sequence>
+      <command>
+        <exec>/home/rundeck/scripts/memory.sh</exec>
+      </command>
+    </sequence>
+    <nodefilters>
+      <filter>name: ${node.name}</filter>
+    </nodefilters>
+    <notification>
+      <onfailure>
+        <email recipients="admin@example.com"/>
+      </onfailure>
+    </notification>
+  </job>
+</joblist>

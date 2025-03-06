@@ -100,14 +100,24 @@ services:
       - LOG_LEVEL=debug
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=llama3.2
+      - RUNDECK_API_URL=http://rundeck:4440/api/41
+      - RUNDECK_TOKEN=admin12345
+      - RUNDECK_PROJECT=automated-ops
+      - RUNDECK_JOB_CLEANUP_DISK=cleanup-disk
+      - RUNDECK_JOB_RESTART_SERVICE=restart-service
+      - RUNDECK_JOB_ANALYZE_PROCESSES=analyze-processes
+      - RUNDECK_JOB_RESTART_APPLICATION=restart-application
+      - RUNDECK_JOB_NOTIFY=notify
     ports:
       - "8000:8000"
     networks:
       - dorothy-network
       - zabbix-network  
+      - rundeck-network
     restart: unless-stopped
     depends_on:
       - ollama
+      - rundeck
 
   # Ollama para LLMs locais
   ollama:
@@ -121,14 +131,66 @@ services:
       - dorothy-network
     restart: unless-stopped
     command: serve
+    
+  # Banco de dados para o Rundeck
+  rundeck-mariadb:
+    image: mariadb:10.6
+    container_name: rundeck-mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: rundeckrootpw
+      MYSQL_DATABASE: rundeck
+      MYSQL_USER: rundeck
+      MYSQL_PASSWORD: rundeck
+    volumes:
+      - rundeck-db:/var/lib/mysql
+    restart: unless-stopped
+    networks:
+      - rundeck-network
+
+  # Rundeck - plataforma de automação
+  rundeck:
+    image: rundeck/rundeck:4.17.2
+    container_name: rundeck
+    depends_on:
+      - rundeck-mariadb
+    environment:
+      RUNDECK_DATABASE_URL: jdbc:mysql://rundeck-mariadb/rundeck?autoReconnect=true&useSSL=false
+      RUNDECK_DATABASE_DRIVER: org.mariadb.jdbc.Driver
+      RUNDECK_DATABASE_USERNAME: rundeck
+      RUNDECK_DATABASE_PASSWORD: rundeck
+      RUNDECK_GRAILS_URL: http://localhost:4440
+      RUNDECK_SERVER_FORWARDED: "true"
+      RUNDECK_LOGGING_STRATEGY: CONSOLE
+      RUNDECK_PLUGIN_EXECUTIONFILESTORAGE_NAME: com.rundeck.rundeckpro.amazon-s3
+      RUNDECK_PREAUTH_ENABLED: "false"
+      RUNDECK_SECURITY_CSRF_ENABLED: "false"
+      RUNDECK_SECURITY_APITOKEN_ADMIN_DURATION: forever
+      RUNDECK_USER_ADMIN_PASSWORD: #####
+    volumes:
+      - rundeck-data:/home/rundeck/server/data
+      - ./rundeck/jobs:/home/rundeck/jobs
+      - ./rundeck/scripts:/home/rundeck/scripts:ro
+      - ./rundeck/keys:/home/rundeck/etc/keys
+      - ./rundeck/rundeck-config.properties:/home/rundeck/server/config/rundeck-config.properties
+    ports:
+      - "4440:4440"
+    restart: unless-stopped
+    networks:
+      - rundeck-network
+      - dorothy-network
+      - zabbix-network
 
 networks:
   zabbix-network:
     driver: bridge
   dorothy-network:
     driver: bridge
+  rundeck-network:
+    driver: bridge
 
 volumes:
   postgres-data:
   ollama-data:
   simulator-scripts:
+  rundeck-data:
+  rundeck-db:

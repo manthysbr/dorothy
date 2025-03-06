@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<joblist>
+  <job>
+    <id>notify</id>
+    <name>Enviar Notificação</name>
+    <description>Envia notificações para equipes específicas</description>
+    <group>automated-ops</group>
+    <context>
+      <project>automated-ops</project>
+      <options>
+        <option name="message" required="true">
+          <description>Mensagem da notificação</description>
+        </option>
+        <option name="team">
+          <description>Equipe a ser notificada (deixe em branco para todas)</description>
+          <values>operations,development,security</values>
+        </option>
+        <option name="priority" value="medium">
+          <description>Prioridade da notificação</description>
+          <values>low,medium,high,critical</values>
+        </option>
+      </options>
+    </context>
+    <dispatch>
+      <threadcount>1</threadcount>
+      <keepgoing>false</keepgoing>
+    </dispatch>
+    <sequence>
+      <command>
+        <exec>/home/rundeck/scripts/notify.sh</exec>
+      </command>
+    </sequence>
+    <nodefilters>
+      <filter>name: ${node.name}</filter>
+    </nodefilters>
+  </job>
+</joblist>

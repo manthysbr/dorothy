@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<joblist>
+  <job>
+    <id>analyze-processes</id>
+    <name>Analisar Processos</name>
+    <description>Analisa processos consumindo muitos recursos</description>
+    <group>automated-ops</group>
+    <context>
+      <project>automated-ops</project>
+      <options>
+        <option name="resource_type" required="true">
+          <description>Tipo de recurso a analisar (cpu, memory, io)</description>
+          <values>cpu,memory,io</values>
+        </option>
+        <option name="top_count" value="5">
+          <description>Número de processos a listar</description>
+        </option>
+      </options>
+    </context>
+    <dispatch>
+      <threadcount>1</threadcount>
+      <keepgoing>false</keepgoing>
+    </dispatch>
+    <sequence>
+      <command>
+        <exec>/home/rundeck/scripts/analysis.sh</exec>
+      </command>
+    </sequence>
+    <nodefilters>
+      <filter>name: ${node.name}</filter>
+    </nodefilters>
+    <notification>
+      <onfailure>
+        <email recipients="admin@example.com"/>
+      </onfailure>
+    </notification>
+  </job>
+</joblist>

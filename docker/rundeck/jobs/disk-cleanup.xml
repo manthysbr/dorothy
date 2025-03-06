@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<joblist>
+  <job>
+    <id>cleanup-disk</id>
+    <name>Limpeza de Disco</name>
+    <description>Limpa arquivos antigos e grandes para liberar espaço em disco</description>
+    <group>automated-ops</group>
+    <context>
+      <project>automated-ops</project>
+      <options>
+        <option name="path" required="true">
+          <description>Caminho do sistema de arquivos a ser limpo</description>
+        </option>
+        <option name="min_size" value="100M">
+          <description>Tamanho mínimo dos arquivos a limpar (ex: 100M, 1G)</description>
+        </option>
+        <option name="file_age" value="7d">
+          <description>Idade mínima dos arquivos a limpar (ex: 7d, 24h)</description>
+        </option>
+      </options>
+    </context>
+    <dispatch>
+      <threadcount>1</threadcount>
+      <keepgoing>false</keepgoing>
+    </dispatch>
+    <sequence>
+      <command>
+        <exec>/home/rundeck/scripts/cleandisk.sh</exec>
+      </command>
+    </sequence>
+    <nodefilters>
+      <filter>name: ${node.name}</filter>
+    </nodefilters>
+    <notification>
+      <onfailure>
+        <email recipients="admin@example.com"/>
+      </onfailure>
+    </notification>
+  </job>
+</joblist>

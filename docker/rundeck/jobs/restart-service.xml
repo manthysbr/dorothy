@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<joblist>
+  <job>
+    <id>restart-service</id>
+    <name>Reiniciar Serviço</name>
+    <description>Reinicia um serviço que está parado ou instável</description>
+    <group>automated-ops</group>
+    <context>
+      <project>automated-ops</project>
+      <options>
+        <option name="service_name" required="true">
+          <description>Nome do serviço a ser reiniciado</description>
+        </option>
+        <option name="force" value="false">
+          <description>Se deve forçar a reinicialização</description>
+          <values>true,false</values>
+        </option>
+      </options>
+    </context>
+    <dispatch>
+      <threadcount>1</threadcount>
+      <keepgoing>false</keepgoing>
+    </dispatch>
+    <sequence>
+      <command>
+        <exec>/home/rundeck/scripts/startupservice.sh</exec>
+      </command>
+    </sequence>
+    <nodefilters>
+      <filter>name: ${node.name}</filter>
+    </nodefilters>
+    <notification>
+      <onfailure>
+        <email recipients="admin@example.com"/>
+      </onfailure>
+    </notification>
+  </job>
+</joblist>

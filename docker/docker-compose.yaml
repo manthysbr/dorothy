@@ -137,7 +137,7 @@ services:
     image: mariadb:10.6
     container_name: rundeck-mariadb
     environment:
-      MYSQL_ROOT_PASSWORD: rundeckrootpw
+      MYSQL_ROOT_PASSWORD: #rundeckrootpwisanexample
       MYSQL_DATABASE: rundeck
       MYSQL_USER: rundeck
       MYSQL_PASSWORD: #####

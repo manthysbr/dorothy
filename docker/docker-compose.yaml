@@ -101,7 +101,7 @@ services:
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=llama3.2
       - RUNDECK_API_URL=http://rundeck:4440/api/41
-      - RUNDECK_TOKEN=admin12345
+      - RUNDECK_TOKEN=#####
       - RUNDECK_PROJECT=automated-ops
       - RUNDECK_JOB_CLEANUP_DISK=cleanup-disk
       - RUNDECK_JOB_RESTART_SERVICE=restart-service

@@ -92,7 +92,7 @@ Container with monitoring agent configured to:
 - Minimum 8GB RAM (16GB recommended)
 - At least 20GB of disk space
 
-## 🛠 Customization
+## 🛠 customization
 
 ### configuring monitoring actions
 

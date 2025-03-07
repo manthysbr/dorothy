@@ -102,7 +102,7 @@ The integration allows you to customize which alerts are sent to the API:
 2. Edit the action "Send alerts to API"
 3. Modify conditions and filters as needed
 
-### adding new functions to the LLM
+### adding new functions to the llm
 
 To add new functions that the AI can call:
 

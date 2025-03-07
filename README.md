@@ -1,5 +1,4 @@
 
-
 ## what it does
 An advanced alert response automation solution that uses llms to analyze, classify, and respond to monitoring alerts intelligently and proactively. Working as an L1 operations agent, the system interprets problems, makes decisions, and triggers automation routines, significantly reducing incident response time and operational workload.
 

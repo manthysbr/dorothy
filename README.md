@@ -1,7 +1,19 @@
 
 
 ## what it does
-An advanced alert response automation solution that uses Large Language Models (LLMs) to analyze, classify, and respond to monitoring alerts intelligently and proactively. Working as an L1 operations agent, the system interprets problems, makes decisions, and triggers automation routines, significantly reducing incident response time and operational workload.
+An advanced alert response automation solution that uses llms to analyze, classify, and respond to monitoring alerts intelligently and proactively. Working as an L1 operations agent, the system interprets problems, makes decisions, and triggers automation routines, significantly reducing incident response time and operational workload.
+
+The most innovative aspect of the implementation is the use of function calling with Llama 3.2 model, executed through a local runtime. This technique allows the LLM to not only analyze text data, but also structure its responses as function calls with specific parameters.
+
+The function calling implementation demonstrates a practical and efficient approach, defining tools the LLM can invoke with proper structure, parameters, and requirements.
+
+The processing approach allows the LLM to not only analyze the problem but also recommend specific and parameterized actions to remedy it.
+
+The system's effectiveness critically depends on prompt design, using a two-part approach with system prompt (defining context and expected behavior) and user prompt (structuring alert data and guiding decisions).
+
+
+> [!TIP]
+> All those are opensource tools, so if you wanna run it locally, just do it 🐳
 
 ## 📋 table of contents
 
@@ -289,34 +301,3 @@ docker logs monitoring-agent-simulator
 # LLM runtime logs
 docker logs ollama
 ```
-
-The most innovative aspect of the implementation is the use of function calling with Llama 3.2 model, executed through a local runtime. This technique allows the LLM to not only analyze text data, but also structure its responses as function calls with specific parameters.
-
-The function calling implementation demonstrates a practical and efficient approach, defining tools the LLM can invoke with proper structure, parameters, and requirements.
-
-The processing approach allows the LLM to not only analyze the problem but also recommend specific and parameterized actions to remedy it.
-
-The system's effectiveness critically depends on prompt design, using a two-part approach with system prompt (defining context and expected behavior) and user prompt (structuring alert data and guiding decisions).
-
-Using local LLM runtime provides important advantages:
-- **Data privacy**: Sensitive monitoring data never leaves the controlled environment
-- **Reduced latency**: Local execution eliminates network delays
-- **Offline operation**: The system can function in air-gapped environments
-- **Customization**: Possibility of fine-tuning with proprietary operations data
-
-The modular REST API-based architecture facilitates:
-- Component substitution
-- Model updates
-- Addition of new capabilities without rewriting the system
-
-The system demonstrates applicability in various common operations scenarios:
-1. Infrastructure resource management
-2. Service stability
-3. Advanced triage
-
-The implementation presents important challenges:
-1. Hardware requirements for local LLM execution
-2. Model accuracy for correct problem identification
-3. Continuous adaptation to changing infrastructure environments
-
-This project represents a practical implementation of AIOps based on open source components, demonstrating how LLMs can be applied to real IT operations problems. As language models continue to evolve, we can anticipate deeper integration with observability systems, enhanced diagnostic capabilities, greater autonomy in remediation, and continuous learning from human interventions.

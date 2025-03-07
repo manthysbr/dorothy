@@ -156,16 +156,6 @@ project/
 └── start_environment.sh   # Startup script
 ```
 
-### code conventions
-
-This project follows PEP-8 with the following conventions:
-- Indentation: 4 spaces
-- Maximum 79 characters per line
-- Docstrings in all functions and classes
-- snake_case for functions and variables
-- CamelCase for classes
-- UPPERCASE for constants
-
 ### development workflow
 
 1. Set up a Python virtual environment

@@ -169,7 +169,7 @@ services:
     volumes:
       - rundeck-data:/home/rundeck/server/data
       - ./rundeck/jobs:/home/rundeck/jobs
-      - ./rundeck/scripts:/home/rundeck/scripts:ro
+      - ./rundeck/scripts:/home/rundeck/scripts
       - ./rundeck/keys:/home/rundeck/etc/keys
       - ./rundeck/rundeck-config.properties:/home/rundeck/server/config/rundeck-config.properties
     ports:

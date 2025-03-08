@@ -1,7 +1,8 @@
 import httpx
 import json
-from typing import Dict, Any, Optional
-from urllib.parse import quote
+import uuid
+import time
+from typing import Dict, Any, Optional, Tuple
 
 from app.core.config import settings
 from app.core.logging import logger, log_erro_integracao
@@ -22,6 +23,7 @@ class RundeckService:
         self.token = settings.RUNDECK_TOKEN
         self.project = settings.RUNDECK_PROJECT
         self.action_mapping = settings.ACTION_MAPPING
+        self.base_url = self.api_url.rsplit('/api', 1)[0]
         
         # Headers padrão para todas as requisições
         self.headers = {
@@ -29,41 +31,58 @@ class RundeckService:
             "Content-Type": "application/json",
             "X-Rundeck-Auth-Token": self.token
         }
-    
-    async def check_connection(self) -> Dict[str, Any]:
+
+        # Mapeamento de jobs para webhooks
+        self._webhook_map = {
+            # Com underscore (formato do function calling)
+            "cleanup_disk": "CjErsoegWTqAkBT0W54n3bTNg7iIsy4I#limpeza_de_disco",
+            "restart_service": "fHhzLf806fPUOiCpdhCBM7hR5zzI8B5J#restart_servico",
+            "analyze_processes": "n4aedKfdHKziD46ayYWMG0I7NHTnM9Gt#analise",
+            "restart_application": "a8UhsPtDe73LrMWczcoXk5b7PYwFjyD6#restart_app",
+            "notify": "2836bJRcdX4MYF9hTqCcH0yaLsAGZaXA#notificar",
+            
+            # Com hífen (formato das variáveis de ambiente)
+            "cleanup-disk": "CjErsoegWTqAkBT0W54n3bTNg7iIsy4I#limpeza_de_disco",
+            "restart-service": "fHhzLf806fPUOiCpdhCBM7hR5zzI8B5J#restart_servico",
+            "analyze-processes": "n4aedKfdHKziD46ayYWMG0I7NHTnM9Gt#analise",
+            "restart-app": "a8UhsPtDe73LrMWczcoXk5b7PYwFjyD6#restart_app",
+            "notify": "2836bJRcdX4MYF9hTqCcH0yaLsAGZaXA#notificar"
+        }
+
+    def _get_webhook_url(self, job_id: str) -> Tuple[Optional[str], str]:
         """
-        Verifica se a conexão com o Rundeck está funcionando.
+        Obtém a URL do webhook para um determinado job_id.
         
+        Args:
+            job_id: Identificador do job
+            
         Returns:
-            Dicionário com status e mensagem
+            Tupla com (URL do webhook ou None se não encontrado, mensagem de status)
         """
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{self.api_url}/system/info",
-                    headers=self.headers,
-                    timeout=10.0
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    return {
-                        "status": "operational",
-                        "version": data.get("system", {}).get("version", ""),
-                        "message": "Conexão com Rundeck estabelecida"
-                    }
-                else:
-                    raise Exception(
-                        f"Erro HTTP {response.status_code}: {response.text}"
-                    )
-                    
-        except Exception as e:
-            log_erro_integracao("Rundeck", "check_connection", e)
-            return {
-                "status": "error",
-                "message": f"Falha na conexão: {str(e)}"
-            }
-    
+        # Tenta diferentes formatos do job_id
+        variants = [
+            job_id,                      # Original
+            job_id.replace('-', '_'),    # Converte hífen para underscore
+            job_id.replace('_', '-')     # Converte underscore para hífen
+        ]
+        
+        # Registra tentativas para debugging
+        logger.debug(f"Buscando webhook para job '{job_id}', tentando variantes: {variants}")
+        
+        # Busca nas variantes
+        for variant in variants:
+            if variant in self._webhook_map:
+                webhook_id = self._webhook_map[variant]
+                logger.debug(f"Webhook encontrado para variante '{variant}': {webhook_id}")
+                return f"{self.base_url}/api/45/webhook/{webhook_id}", "ok"
+        
+        # Se não encontrou, registra o problema
+        logger.warning(
+            f"Job ID '{job_id}' não encontrado no mapeamento de webhooks. "
+            f"Tentativas: {variants}"
+        )
+        return None, f"Job ID desconhecido: {job_id}"
+
     async def execute_job(self, job_id: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
         """
         Executa um job no Rundeck usando webhook.
@@ -75,104 +94,95 @@ class RundeckService:
         Returns:
             Resultado da chamada
         """
-        # Mapear job_id para webhook e função
-        webhook_map = {
-            "cleanup_disk": "CjErsoegWTqAkBT0W54n3bTNg7iIsy4I#limpeza_de_disco",
-            "restart_service": "fHhzLf806fPUOiCpdhCBM7hR5zzI8B5J#restart_servico",
-            "notify": "2836bJRcdX4MYF9hTqCcH0yaLsAGZaXA#notificar",
-            "analyze_processes": "n4aedKfdHKziD46ayYWMG0I7NHTnM9Gt#analise"
-        }
+        logger.info(f"Iniciando execução do job: {job_id} com parâmetros: {parameters}")
         
-        if job_id not in webhook_map:
-            logger.error(f"Job ID desconhecido: {job_id}")
-            return {"error": "Job ID desconhecido"}
+        # Obtém URL do webhook
+        webhook_url, status = self._get_webhook_url(job_id)
         
-        webhook = webhook_map[job_id]
-        webhook_url = f"{self.base_url}/api/45/webhook/{webhook}"
+        # Se não encontrou webhook, tenta fallback
+        if webhook_url is None:
+            logger.warning(f"Webhook não encontrado para job {job_id}, tentando fallback")
+            
+            # Tenta usar mapeamentos alternativos diretos
+            fallback_map = {
+                "cleanup-disk": "CjErsoegWTqAkBT0W54n3bTNg7iIsy4I#limpeza_de_disco",
+                "restart-service": "fHhzLf806fPUOiCpdhCBM7hR5zzI8B5J#restart_servico",
+                "analyze-processes": "n4aedKfdHKziD46ayYWMG0I7NHTnM9Gt#analise",
+                "restart-app": "a8UhsPtDe73LrMWczcoXk5b7PYwFjyD6#restart_app",
+                "notify": "2836bJRcdX4MYF9hTqCcH0yaLsAGZaXA#notificar"
+            }
+            
+            if job_id in fallback_map:
+                webhook_id = fallback_map[job_id]
+                logger.info(f"Usando webhook alternativo para {job_id}: {webhook_id}")
+                webhook_url = f"{self.base_url}/api/45/webhook/{webhook_id}"
+            else:
+                # Último recurso: verifica se o job_id é exatamente o webhook ID
+                for webhook_id in self._webhook_map.values():
+                    if job_id in webhook_id:
+                        logger.info(f"Usando job_id diretamente como webhook: {webhook_id}")
+                        webhook_url = f"{self.base_url}/api/45/webhook/{webhook_id}"
+                        break
         
-        # Adicionar ID do alerta para rastreabilidade
+        # Se ainda não encontrou, retorna erro
+        if webhook_url is None:
+            logger.error(f"Não foi possível encontrar webhook para job: {job_id}")
+            return {
+                "error": "Job ID desconhecido",
+                "job_id": job_id,
+                "status": "failed"
+            }
+        
+        # Adicionar ID do alerta e timestamp para rastreabilidade
         parameters["alert_id"] = str(uuid.uuid4())
+        parameters["timestamp"] = int(time.time())
         
         try:
+            # Se estamos em modo simulação (sem token válido), logamos apenas
+            if not self.token or self.token == "admin12345":
+                logger.info(
+                    f"SIMULAÇÃO: Job {job_id} executaria com URL {webhook_url} e "
+                    f"parâmetros: {json.dumps(parameters, indent=2)}"
+                )
+                return {
+                    "job_id": job_id,
+                    "parameters": parameters,
+                    "status": "simulated",
+                    "webhook_url": webhook_url,
+                    "message": "Job simulado (token não configurado)"
+                }
+                
+            # Caso contrário, fazemos a chamada real
             async with httpx.AsyncClient() as client:
-                response = await client.post(webhook_url, json=parameters)
+                logger.info(f"Acionando webhook: {webhook_url}")
+                response = await client.post(
+                    webhook_url, 
+                    json=parameters,
+                    headers=self.headers,
+                    timeout=30.0
+                )
                 response.raise_for_status()
                 
-                logger.info(f"Job {job_id} executado com sucesso. Parâmetros: {parameters}")
+                logger.info(
+                    f"Job {job_id} executado com sucesso através do webhook. "
+                    f"Status: {response.status_code}"
+                )
                 return {
                     "job_id": job_id,
                     "parameters": parameters,
                     "status": "triggered",
+                    "webhook_url": webhook_url,
+                    "response_status": response.status_code,
                     "webhook_response": response.json() if response.text else {}
                 }
         except Exception as e:
-            logger.error(f"Erro ao executar job {job_id}: {str(e)}")
-            return {"error": f"Falha ao executar job: {str(e)}"}
-    
-    async def get_job_status(self, execution_id: str) -> Dict[str, Any]:
-        """
-        Verifica o status de execução de um job.
-        
-        Args:
-            execution_id: ID de execução do job
-            
-        Returns:
-            Status da execução
-        """
-        try:
-            async with httpx.AsyncClient() as client:
-                url = f"{self.api_url}/execution/{execution_id}"
-                
-                response = await client.get(
-                    url,
-                    headers=self.headers,
-                    timeout=10.0
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    return {
-                        "success": True,
-                        "status": data.get("status"),
-                        "started_at": data.get("date-started"),
-                        "ended_at": data.get("date-ended"),
-                        "job_id": data.get("job", {}).get("id")
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "message": f"Erro HTTP {response.status_code}",
-                        "status": "unknown"
-                    }
-                    
-        except Exception as e:
-            log_erro_integracao("Rundeck", "get_job_status", e)
+            log_erro_integracao("Rundeck", "execute_job", e)
+            logger.error(
+                f"Erro ao executar job {job_id} via webhook {webhook_url}: {str(e)}"
+            )
             return {
-                "success": False,
-                "message": f"Erro ao obter status: {str(e)}",
+                "error": f"Falha ao executar job: {str(e)}",
+                "job_id": job_id,
+                "webhook_url": webhook_url,
                 "status": "error"
             }
-    
-    def _format_parameters(self, parameters: Dict[str, Any]) -> str:
-        """
-        Formata os parâmetros para o formato aceito pelo Rundeck.
-        
-        Args:
-            parameters: Dicionário de parâmetros
-            
-        Returns:
-            String formatada para o Rundeck
-        """
-        if not parameters:
-            return ""
-            
-        param_strings = []
-        for key, value in parameters.items():
-            # Para listas, join com vírgulas
-            if isinstance(value, list):
-                value = ",".join(str(v) for v in value)
-            # Codifica valores para URL
-            encoded_value = quote(str(value))
-            param_strings.append(f"-{key} {encoded_value}")
-            
-        return " ".join(param_strings)

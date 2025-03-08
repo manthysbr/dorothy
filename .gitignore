@@ -18,3 +18,5 @@ app/services/__pycache__/rundeck_service.cpython-310.pyc
 logs/dorothy.log
 app/services/__pycache__/ollama_service.cpython-310.pyc
 app/services/__pycache__/rundeck_service.cpython-310.pyc
+docker/docker-compose.yaml
+scripts/request.js

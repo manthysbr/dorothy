@@ -1,5 +1,4 @@
 services:
-  # PostgreSQL para o Zabbix (mais leve que MySQL para uso local)
   postgres:
     image: postgres:15-alpine
     container_name: zabbix-postgres
@@ -11,7 +10,7 @@ services:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
     networks:
-      - zabbix-network
+      - dorothy-network
       
   # Servidor Zabbix
   zabbix-server:
@@ -29,7 +28,6 @@ services:
       - "10051:10051"
     restart: unless-stopped
     networks:
-      - zabbix-network
       - dorothy-network
 
   # Interface Web do Zabbix
@@ -50,7 +48,6 @@ services:
       - "8080:8080"
     restart: unless-stopped
     networks:
-      - zabbix-network
       - dorothy-network
 
   # Agente Zabbix para monitorar o próprio servidor
@@ -66,7 +63,6 @@ services:
     restart: unless-stopped
     privileged: true
     networks:
-      - zabbix-network
       - dorothy-network
 
   # Agente Zabbix para simular problemas
@@ -84,12 +80,13 @@ services:
       ZBX_ACTIVE_SERVER: zabbix-server
     volumes:
       - ../host:/etc/zabbix/scripts
+      - rundeck-scripts:/usr/local/bin
+      - simulator-logs:/var/log/results
     ports:
       - "10050:10050"
     restart: unless-stopped
     privileged: true  
     networks:
-      - zabbix-network
       - dorothy-network
 
   # API Dorothy
@@ -101,7 +98,7 @@ services:
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=llama3.2
       - RUNDECK_API_URL=http://rundeck:4440/api/41
-      - RUNDECK_TOKEN=#####
+      - RUNDECK_TOKEN=admin12345
       - RUNDECK_PROJECT=automated-ops
       - RUNDECK_JOB_CLEANUP_DISK=cleanup-disk
       - RUNDECK_JOB_RESTART_SERVICE=restart-service
@@ -110,10 +107,10 @@ services:
       - RUNDECK_JOB_NOTIFY=notify
     ports:
       - "8000:8000"
+    volumes:
+      - api-logs:/app/logs
     networks:
       - dorothy-network
-      - zabbix-network  
-      - rundeck-network
     restart: unless-stopped
     depends_on:
       - ollama
@@ -137,15 +134,15 @@ services:
     image: mariadb:10.6
     container_name: rundeck-mariadb
     environment:
-      MYSQL_ROOT_PASSWORD: #rundeckrootpwisanexample
+      MYSQL_ROOT_PASSWORD: rundeckrootpw
       MYSQL_DATABASE: rundeck
       MYSQL_USER: rundeck
-      MYSQL_PASSWORD: #####
+      MYSQL_PASSWORD: rundeck
     volumes:
       - rundeck-db:/var/lib/mysql
     restart: unless-stopped
     networks:
-      - rundeck-network
+      - dorothy-network
 
   # Rundeck - plataforma de automação
   rundeck:
@@ -157,40 +154,41 @@ services:
       RUNDECK_DATABASE_URL: jdbc:mysql://rundeck-mariadb/rundeck?autoReconnect=true&useSSL=false
       RUNDECK_DATABASE_DRIVER: org.mariadb.jdbc.Driver
       RUNDECK_DATABASE_USERNAME: rundeck
-      RUNDECK_DATABASE_PASSWORD: #######
+      RUNDECK_DATABASE_PASSWORD: rundeck
       RUNDECK_GRAILS_URL: http://localhost:4440
       RUNDECK_SERVER_FORWARDED: "true"
       RUNDECK_LOGGING_STRATEGY: CONSOLE
-      RUNDECK_PLUGIN_EXECUTIONFILESTORAGE_NAME: com.rundeck.rundeckpro.amazon-s3
       RUNDECK_PREAUTH_ENABLED: "false"
       RUNDECK_SECURITY_CSRF_ENABLED: "false"
       RUNDECK_SECURITY_APITOKEN_ADMIN_DURATION: forever
-      RUNDECK_USER_ADMIN_PASSWORD: #####
+      RUNDECK_USER_ADMIN_PASSWORD: admin12345
+      SIMULATOR_HOST: zabbix-agent-simulator
     volumes:
       - rundeck-data:/home/rundeck/server/data
       - ./rundeck/jobs:/home/rundeck/jobs
-      - ./rundeck/scripts:/home/rundeck/scripts
+      - ./rundeck/scripts:/home/rundeck/scripts:ro
       - ./rundeck/keys:/home/rundeck/etc/keys
+      - ./rundeck/logs:/var/lib/rundeck/logs
+      - simulator-logs:/var/rundeck/simulator-logs:ro
       - ./rundeck/rundeck-config.properties:/home/rundeck/server/config/rundeck-config.properties
+      - simulator-logs:/var/lib/rundeck/logs/simulator:ro
+      - rundeck-scripts:/home/rundeck/rundeck-scripts
     ports:
       - "4440:4440"
     restart: unless-stopped
     networks:
-      - rundeck-network
       - dorothy-network
-      - zabbix-network
 
 networks:
-  zabbix-network:
-    driver: bridge
   dorothy-network:
-    driver: bridge
-  rundeck-network:
     driver: bridge
 
 volumes:
   postgres-data:
   ollama-data:
   simulator-scripts:
+  simulator-logs:
   rundeck-data:
   rundeck-db:
+  rundeck-scripts:
+  api-logs:

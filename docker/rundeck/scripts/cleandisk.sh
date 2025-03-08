@@ -1,68 +1,55 @@
 #!/bin/bash
-# Script para limpeza de disco em servidores
+# Script para limpeza de disco (simulação)
 
-# Parâmetros recebidos do Rundeck
-PATH_TO_CLEAN="$RD_OPTION_PATH"
-MIN_SIZE="${RD_OPTION_MIN_SIZE:-100M}"
-FILE_AGE="${RD_OPTION_FILE_AGE:-7d}"
+echo "=== INICIANDO LIMPEZA DE DISCO ==="
+echo "Data/Hora: $(date '+%Y-%m-%d %H:%M:%S')"
+echo "Caminho: ${RD_OPTION_PATH}"
+echo "Tamanho mínimo: ${RD_OPTION_MIN_SIZE:-100M}"
+echo "Idade mínima: ${RD_OPTION_FILE_AGE:-7d}"
 
-echo "=== Iniciando limpeza de disco ==="
-echo "Caminho: $PATH_TO_CLEAN"
-echo "Tamanho mínimo: $MIN_SIZE"
-echo "Idade mínima: $FILE_AGE"
+# Criar arquivo de log
+LOG_FILE="/var/log/results/disk-cleanup-$(date +%s).log"
+mkdir -p /var/log/results
 
-# Validar parâmetros
-if [ -z "$PATH_TO_CLEAN" ]; then
-    echo "ERRO: Caminho não especificado"
-    exit 1
-fi
+{
+  echo "================================================================="
+  echo "           RELATÓRIO DE LIMPEZA DE DISCO (SIMULAÇÃO)"
+  echo "================================================================="
+  echo "ALERTA ID: ${RD_OPTION_ALERT_ID:-N/A}"
+  echo "CAMINHO: ${RD_OPTION_PATH}"
+  echo "DATA/HORA: $(date '+%Y-%m-%d %H:%M:%S')"
+  echo "================================================================="
+  echo
+  echo "ANÁLISE PRÉ-LIMPEZA:"
+  echo "-----------------------------------------------------------------"
+  echo "Espaço em disco antes da limpeza:"
+  df -h | grep -E "(Filesystem|${RD_OPTION_PATH})"
+  echo
+  echo "Arquivos mais volumosos encontrados:"
+  echo "  - /var/log/syslog: 256MB (últimas modificação: 15 dias atrás)"
+  echo "  - /var/log/mongodb/mongodb.log: 512MB (última modificação: 30 dias atrás)"
+  echo "  - /var/cache/apt/archives/*.deb: 350MB total (diversos arquivos)"
+  echo
+  echo "AÇÕES EXECUTADAS:"
+  echo "-----------------------------------------------------------------"
+  echo "✓ Removidos 15 arquivos de log com mais de ${RD_OPTION_FILE_AGE:-7d} dias"
+  echo "✓ Limpo cache de pacotes temporários"
+  echo "✓ Compactados logs antigos"
+  echo
+  echo "RESULTADO:"
+  echo "-----------------------------------------------------------------"
+  echo "Espaço em disco após limpeza (simulação):"
+  echo "Filesystem      Size  Used Avail Use% Mounted on"
+  echo "/dev/sda1        50G   23G   27G  45% ${RD_OPTION_PATH}"
+  echo
+  echo "Espaço recuperado: 1.2GB"
+  echo
+  echo "================================================================="
+} | tee "$LOG_FILE"
 
-# Verificar se o caminho existe
-if [ ! -d "$PATH_TO_CLEAN" ]; then
-    echo "ERRO: Diretório $PATH_TO_CLEAN não encontrado"
-    exit 1
-fi
+# Desativar o problema simulado
+echo "30" > /etc/zabbix/scripts/simulate_disk_full.txt
+echo "Problema de disco simulado DESATIVADO após limpeza"
 
-# Mostrar espaço antes da limpeza
-echo -e "\nEspaço em disco antes da limpeza:"
-df -h "$PATH_TO_CLEAN"
-
-# Encontrar arquivos grandes e antigos
-echo -e "\nEncontrando arquivos para remoção..."
-
-# Converter FILE_AGE para o formato correto do find
-if [[ "$FILE_AGE" =~ ([0-9]+)d ]]; then
-    DAYS=${BASH_REMATCH[1]}
-    AGE_PARAM="-mtime +$DAYS"
-elif [[ "$FILE_AGE" =~ ([0-9]+)h ]]; then
-    HOURS=${BASH_REMATCH[1]}
-    # Converter horas para minutos para o find
-    MINUTES=$((HOURS * 60))
-    AGE_PARAM="-mmin +$MINUTES"
-else
-    # Padrão: 7 dias
-    AGE_PARAM="-mtime +7"
-fi
-
-# Listar arquivos que seriam removidos
-echo "Arquivos que serão removidos:"
-find "$PATH_TO_CLEAN" -type f $AGE_PARAM -size "+$MIN_SIZE" -exec ls -lh {} \; | head -10
-
-# Contar quantos arquivos serão removidos
-TOTAL_FILES=$(find "$PATH_TO_CLEAN" -type f $AGE_PARAM -size "+$MIN_SIZE" | wc -l)
-echo -e "\nTotal de arquivos a remover: $TOTAL_FILES"
-
-# Remover arquivos
-echo -e "\nRemovendo arquivos..."
-find "$PATH_TO_CLEAN" -type f $AGE_PARAM -size "+$MIN_SIZE" -delete
-
-# Remover diretórios vazios
-echo -e "\nRemovendo diretórios vazios..."
-find "$PATH_TO_CLEAN" -type d -empty -delete
-
-# Mostrar espaço após a limpeza
-echo -e "\nEspaço em disco após limpeza:"
-df -h "$PATH_TO_CLEAN"
-
-echo -e "\n=== Limpeza de disco concluída ==="
+# Simulação bem-sucedida
 exit 0

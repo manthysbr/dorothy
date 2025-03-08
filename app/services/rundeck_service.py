@@ -64,99 +64,50 @@ class RundeckService:
                 "message": f"Falha na conexão: {str(e)}"
             }
     
-    async def execute_job(
-        self,
-        job_id: str,
-        parameters: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+    async def execute_job(self, job_id: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Executa um job no Rundeck.
+        Executa um job no Rundeck usando webhook.
         
         Args:
-            job_id: ID do job a ser executado
-            parameters: Parâmetros para a execução do job
+            job_id: ID do job para executar
+            parameters: Parâmetros para o job
             
         Returns:
-            Resposta do Rundeck
+            Resultado da chamada
         """
-        if not job_id:
-            return {
-                "success": False,
-                "message": "ID do job não especificado"
-            }
-            
-        # Se job_id for uma string de ação, obter o ID real do mapeamento
-        job_description = ""
-        if job_id in self.action_mapping:
-            job_description = self.action_mapping[job_id].get("description", "")
-            mapped_job_id = self.action_mapping[job_id].get("job_id", "")
-            if mapped_job_id:
-                job_id = mapped_job_id
-            elif not self.token:  # Modo de teste (sem token configurado)
-                # Simula execução bem-sucedida para testes
-                logger.info(
-                    f"Modo de teste: Simulando execução do job '{job_id}'"
-                )
-                return {
-                    "success": True,
-                    "execution_id": f"mock-{job_id}-{int(time.time())}",
-                    "job_id": job_id,
-                    "status": "running",
-                    "message": f"Simulando execução de: {job_description}"
-                }
+        # Mapear job_id para webhook e função
+        webhook_map = {
+            "cleanup_disk": "CjErsoegWTqAkBT0W54n3bTNg7iIsy4I#limpeza_de_disco",
+            "restart_service": "fHhzLf806fPUOiCpdhCBM7hR5zzI8B5J#restart_servico",
+            "notify": "2836bJRcdX4MYF9hTqCcH0yaLsAGZaXA#notificar",
+            "analyze_processes": "n4aedKfdHKziD46ayYWMG0I7NHTnM9Gt#analise"
+        }
         
-        parameters = parameters or {}
+        if job_id not in webhook_map:
+            logger.error(f"Job ID desconhecido: {job_id}")
+            return {"error": "Job ID desconhecido"}
+        
+        webhook = webhook_map[job_id]
+        webhook_url = f"{self.base_url}/api/45/webhook/{webhook}"
+        
+        # Adicionar ID do alerta para rastreabilidade
+        parameters["alert_id"] = str(uuid.uuid4())
         
         try:
             async with httpx.AsyncClient() as client:
-                # Endpoint para executar um job
-                url = f"{self.api_url}/job/{job_id}/run"
+                response = await client.post(webhook_url, json=parameters)
+                response.raise_for_status()
                 
-                # Payload com os parâmetros do job
-                payload = {
-                    "argString": self._format_parameters(parameters)
+                logger.info(f"Job {job_id} executado com sucesso. Parâmetros: {parameters}")
+                return {
+                    "job_id": job_id,
+                    "parameters": parameters,
+                    "status": "triggered",
+                    "webhook_response": response.json() if response.text else {}
                 }
-                
-                # Executar o job
-                response = await client.post(
-                    url,
-                    headers=self.headers,
-                    json=payload,
-                    timeout=30.0
-                )
-                
-                if response.status_code in (200, 201):
-                    execution = response.json()
-                    logger.info(
-                        f"Job executado com sucesso. ID: {execution.get('id')}"
-                    )
-                    return {
-                        "success": True,
-                        "execution_id": execution.get("id"),
-                        "job_id": job_id,
-                        "status": execution.get("status")
-                    }
-                else:
-                    error_msg = (
-                        f"Erro ao executar job. Status: {response.status_code}, "
-                        f"Resposta: {response.text}"
-                    )
-                    logger.error(error_msg)
-                    return {
-                        "success": False,
-                        "message": error_msg,
-                        "job_id": job_id,
-                        "status_code": response.status_code
-                    }
-                    
         except Exception as e:
-            error_msg = f"Exceção ao executar job: {str(e)}"
-            log_erro_integracao("Rundeck", "execute_job", e)
-            return {
-                "success": False,
-                "message": error_msg,
-                "job_id": job_id
-            }
+            logger.error(f"Erro ao executar job {job_id}: {str(e)}")
+            return {"error": f"Falha ao executar job: {str(e)}"}
     
     async def get_job_status(self, execution_id: str) -> Dict[str, Any]:
         """

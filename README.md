@@ -109,3 +109,6 @@ Até então, o projeto utiliza function calling com o LLM para determinar a aç�
 
 ### Conteiners
 Eu utilizei como teste conteiners para simular as situações ( existe um docker compose com as configurações dentro de utils/docker ) 
+
+#### Demo
+Em docs/simulation.mp4 você pode ver uma demonstração básica do alerta saindo do zabbix, sendo recebido pela API e a API triggando o job no rundeck, resolvendo o alerta sem nenhum tipo de interação. Isso é só um exemplo de adoção mas a idéia core é remediar alertas mais comuns e preditivos, sem a necessidade de um operador humano.

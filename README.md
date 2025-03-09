@@ -12,8 +12,8 @@ Muitos serviços tem padrões entre eles, e já vi em muitos lugares serviços s
 
 ```
 ┌─────────────┐        ┌─────────────┐        ┌─────────────┐
-│ AlertManager│        │    API      │        │ Plataforma  │
-│             ├───────►│             ├───────►│     de      │
+│ AlertManager│        │             │        │ Plataforma  │
+│             ├───────►│     API     ├───────►│     de      │
 │  (Zabbix)   │        │             │        │ Automação   │
 └─────────────┘        └──────┬──────┘        │  (Rundeck)  │
                               │               └─────────────┘

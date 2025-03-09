@@ -1,199 +1,163 @@
+# Dorothy: API Middleware de Automação Inteligente de Respostas a Alertas
 
-## what it does
-An advanced alert response automation solution that uses llms to analyze, classify, and respond to monitoring alerts intelligently and proactively. Working as an L1 operations agent, the system interprets problems, makes decisions, and triggers automation routines, significantly reducing incident response time and operational workload.
+## Visão Geral Técnica
 
-The most innovative aspect of the implementation is the use of function calling with Llama 3.2 model, executed through a local runtime. This technique allows the LLM to not only analyze text data, but also structure its responses as function calls with specific parameters.
-
-The function calling implementation demonstrates a practical and efficient approach, defining tools the LLM can invoke with proper structure, parameters, and requirements.
-
-The processing approach allows the LLM to not only analyze the problem but also recommend specific and parameterized actions to remedy it.
-
-The system's effectiveness critically depends on prompt design, using a two-part approach with system prompt (defining context and expected behavior) and user prompt (structuring alert data and guiding decisions).
+Esse é um projeto que tem como idéia automatizar boa parte do trabalho de toil em SRE, utilizando ferramentas open-source e inteligência artiticial.
+Basicamente a idéia é ter uma API entre o `alert manager` ( nesse caso aqui estou utilizando Zabbix 7 ) e uma `plataforma de automação` ( aqui eu utilizei o Rundeck ), que tenha o poder de tomar decisões baseados no alerta e ( em breve ) no histórico do host, abstraindo toda uma camada de ações manuais. Aqui tentei ser preditivo e generalista ao máximo, pensando apenas em operações básicas de limpeza de disco, restart de serviço, coisas comumente operadas manualmente em operações de larga escala. 
 
 
-> [!TIP]
-> All those are opensource tools, so if you wanna run it locally, just do it 🐳
-
-## 📋 table of contents
-
-- Architecture
-- Components
-- Operational Flow
-- Requirements
-- Setup and Installation
-- Usage
-- Customization
-- Development
-- Troubleshooting
-
-## 🏗 architecture
-
-This project implements a containerized microservices architecture:
 
 ```
 ┌─────────────┐        ┌─────────────┐        ┌─────────────┐
-│             │        │             │        │             │
-│  Monitoring │──────▶│     API     │───────▶│ Automation  │
-│   System    │        │  Middleware │        │  Platform   │
-│             │        │             │        │             │
-└─────────────┘        └──────┬──────┘        └─────────────┘
-                              │
+│  Sistema de │        │    API      │        │ Plataforma  │
+│ Monitoração ├───────►│ Middleware  ├───────►│     de      │
+│  (Zabbix)   │        │  (FastAPI)  │        │ Automação   │
+└─────────────┘        └──────┬──────┘        │  (Rundeck)  │
+                              │               └─────────────┘
                        ┌──────▼──────┐
-                       │             │
-                       │  Local LLM  │
-                       │   Runtime   │
-                       │             │
+                       │  LLM Local  │
+                       │  (Ollama)   │
                        └─────────────┘
 ```
 
-## 🧩 components
+## Arquitetura e Comunicação
 
-### API Middleware
-Central core of the system that:
-- Receives alerts from the monitoring system via webhook
-- Sends prompts to the LLM model
-- Processes LLM responses using function calling
-- Triggers automation routines
-- Provides debugging and monitoring endpoints
+A Dorothy implementa um padrão de arquitetura de middleware assíncrono, posicionando-se entre sistemas de monitoramento (como Zabbix) e plataformas de automação (como Rundeck). O fluxo de dados é totalmente assíncrono, utilizando as capacidades do FastAPI e `httpx` para comunicações não-bloqueantes.
 
-### monitoring system
-Infrastructure monitoring that:
-- Detects problems in the infrastructure
-- Sends alerts to the API via webhook
-- Stores history of problems and resolutions
+### Fluxo de Processamento Detalhado
 
-### llm runtime
-Language model execution service that:
-- Runs the Llama 3.2 model locally
-- Implements function calling for decision making
-- Analyzes alert data and determines appropriate actions
+1. **Recebimento de Alertas**:
+   - Alertas são recebidos via endpoints REST (`/api/v1/zabbix/alert`)
+   - O payload é validado utilizando modelos Pydantic
+   - Informações são normalizadas para processamento posterior
 
-### problem simulator
-Container with monitoring agent configured to:
-- Simulate different types of problems (CPU, disk, memory, services)
-- Activate/deactivate problems via control scripts
-- Test the complete alert and automation flow
+2. **Análise por LLM**:
+   - O serviço `OllamaService` formata prompts especializados
+   - Utiliza a técnica de "function calling" com o modelo Llama 3.2
+   - Sistema de prompts duplos (system prompt + user prompt) para contexto e dados
+   - Comunicação com Ollama via HTTP assíncrono usando `httpx`
 
-## 🔄 operational flow
+3. **Mapeamento e Execução**:
+   - O serviço `RundeckService` traduz decisões do LLM para jobs de automação
+   - Implementa comunicação via webhooks para acionar scripts
+   - Adiciona metadados de rastreabilidade (IDs de alerta, timestamps)
+   - Oferece modo simulação para testes sem execução real
 
-1. **Detection**: The monitoring system detects an infrastructure problem
-2. **Alerting**: The monitoring system sends an alert via webhook to the API
-3. **Processing**: The API formats the data and sends it to the LLM
-4. **AI Analysis**: The LLM analyzes the data and determines which function to call
-5. **Function Calling**: The model calls the appropriate function with specific parameters
-6. **Automation**: The API translates the function call into an automation job
-7. **Resolution**: The automation platform executes the job to resolve the problem
-8. **Feedback**: Results are logged for future reference
+## Componentes Técnicos Principais
 
-## 📋 requirements
+### `OllamaService`
 
-- Docker and Docker Compose
-- Internet access (for initial image downloads)
-- Minimum 8GB RAM (16GB recommended)
-- At least 20GB of disk space
-
-## 🛠 customization
-
-### configuring monitoring actions
-
-The integration allows you to customize which alerts are sent to the API:
-
-1. Access the monitoring system > Configuration > Actions
-2. Edit the action "Send alerts to API"
-3. Modify conditions and filters as needed
-
-### adding new functions to the llm
-
-To add new functions that the AI can call:
-
-1. Edit the LLM service file
-2. Add your new function to the `_create_tools()` method
-3. Update the mapping in the config file
+Implementa a integração com o motor de modelo de linguagem ( llama3.2 ), utilizando uma arquitetura baseada em function calling:
 
 ```python
-# Example of a new function
+# Modelo do esquema de ferramentas definido para o LLM
 {
     "type": "function",
     "function": {
-        "name": "check_database",
-        "description": "Checks the health of a database",
+        "name": "cleanup_disk",
+        "description": "Executa limpeza de disco quando há problemas de espaço",
         "parameters": {
             "type": "object",
             "properties": {
-                "db_name": {
+                "path": {
                     "type": "string",
-                    "description": "Database name"
-                },
-                "check_type": {
-                    "type": "string",
-                    "description": "Type of check (connection, performance, etc)"
+                    "description": "Caminho do sistema de arquivos a limpar"
                 }
+                # Outros parâmetros...
             },
-            "required": ["db_name"]
+            "required": ["path"]
         }
     }
 }
 ```
 
-## 💻 development
+Características técnicas:
 
-### project structure
+- **Definição Estruturada de Ferramentas**: Define schema JSON para as funções que o LLM pode chamar
+- **Processamento Assíncrono**: Utiliza `async/await` para não bloquear durante as chamadas ao LLM
+- **Enriquecimento de Dados**: Implementa processamento contextual para lidar com dados incompletos
+- **Validação de Parâmetros**: Valida e normaliza os parâmetros retornados pelo LLM
+- **Mapeamento Dinâmico**: Traduz funções para jobs específicos do Rundeck
 
-```
-project/
-├── app/                   # Main API code
-│   ├── __init__.py
-│   ├── api/               # Routers and endpoints
-│   ├── core/              # Configurations and utilities
-│   ├── models/            # Data models
-│   └── services/          # External services
-├── docker/                # Docker configurations
-├── host/                  # Simulator scripts
-├── scripts/               # Setup scripts
-├── tests/                 # Tests
-├── main.py                # API entry point
-├── requirements.txt       # Dependencies
-└── start_environment.sh   # Startup script
-```
+### `RundeckService`
 
-### development workflow
+Gerencia a comunicação com a plataforma de automação através de webhooks RESTful:
 
-1. Set up a Python virtual environment
-2. Install development dependencies
-3. Implement your changes following conventions
-4. Run tests
-5. Build Docker image for testing
-6. Submit a pull request
-
-```bash
-# Setting up development environment
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt -r dev-requirements.txt
-
-# Running tests
-pytest
-
-# Building image for testing
-docker build -t api:dev -f docker/middleware/Dockerfile .
+```python
+# Modelo de mapeamento de jobs para webhooks
+self.webhook_urls = {
+    "cleanup-disk": f"{self.base_url}/api/45/webhook/CjErsoegWTqAkBT0W54n3bTNg7iIsy4I#limpeza_de_disco",
+    "restart-service": f"{self.base_url}/api/45/webhook/fHhzLf806fPUOiCpdhCBM7hR5zzI8B5J#restart_servico",
+    # Outros webhooks...
+}
 ```
 
-## 🔍 troubleshooting
+Características técnicas:
 
-### logs
+- **Gestão de Webhooks**: Mapeia jobs para URLs de webhook para acionar scripts no Rundeck
+- **Resiliência**: Implementa fallback para webhooks não encontrados
+- **Rastreabilidade**: Adiciona IDs de alerta e timestamps para correlação
+- **Comunicação Assíncrona**: Utiliza `httpx.AsyncClient` para chamadas não-bloqueantes
+- **Modo de Simulação**: Permite testes sem execução real através de flag de configuração
 
-To check service logs:
+## Capacidades de Análise e Resolução
 
-```bash
-# API logs
-docker logs api-middleware
+A API utiliza function calling com o LLM para determinar a ação mais apropriada entre:
 
-# Monitoring server logs
-docker logs monitoring-server
+1. **`cleanup_disk`**: Limpeza de sistemas de arquivos com espaço crítico
+   - Parâmetros: path, min_size, file_age
+   - Executa scripts que identificam e removem arquivos temporários e logs antigos
 
-# Agent simulator logs
-docker logs monitoring-agent-simulator
+2. **`restart_service`**: Reinício de serviços de sistema parados ou instáveis
+   - Parâmetros: service_name, force, timeout
+   - Utiliza systemd ou outros gerenciadores de serviço para reinicialização controlada
 
-# LLM runtime logs
-docker logs ollama
+3. **`analyze_processes`**: Análise de processos consumindo recursos excessivos
+   - Parâmetros: resource_type, top_count
+   - Executa comandos como `top`, `ps`, `lsof` para identificar processos problemáticos
+
+4. **`restart_application`**: Reinicialização de aplicações específicas
+   - Parâmetros: app_name, graceful, timeout
+   - Gerencia reinicialização de aplicações com mínima interrupção de serviço
+
+5. **`notify`**: Notificação para equipes quando intervenção manual é necessária
+   - Parâmetros: team, priority, message
+   - Envia alertas para canais de comunicação apropriados (email, chat, SMS)
+
+## System Prompts
+
+```python
+def _create_system_prompt(self) -> str:
+    """
+    Cria um prompt de sistema para o modelo.
+    """
+    return """
+    Você é um sistema especializado na análise de alertas do Zabbix e na 
+    automação de respostas a incidentes. Sua tarefa é analisar alertas e
+    determinar a ação mais adequada baseada nas informações fornecidas.
+    
+    # Instruções técnicas para análise e tomada de decisão...
+    """
+```
+
+A idéia aqui é:
+- Fornecer contexto para interpretação de dados incompletos ou ambíguos
+- Limitar o escopo das respostas para o formato de function calling
+
+## Mecanismos de Fallback e Resiliência
+
+A API implementa múltiplas camadas de fallback para garantir resiliência:
+
+1. **Fallback de Função**: Se o LLM falhar em selecionar uma função apropriada
+2. **Fallback de Argumentos**: Se os parâmetros fornecidos forem inválidos ou incompletos
+3. **Fallback de Webhook**: Se o webhook mapeado não for encontrado
+4. **Fallback de Comunicação**: Se a chamada ao LLM ou Rundeck falhar
+
+```python
+def _create_fallback_action(self, reason: str, alert_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Cria uma ação de fallback para casos onde não é possível
+    determinar uma ação automática ou ocorre algum erro.
+    """
+    # Lógica de geração de fallback...
 ```

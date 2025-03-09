@@ -1,0 +1,11 @@
+# Arquivos/diretórios ignorados em exports (downloads/clones via git archive)
+docker/ export-ignore
+host/ export-ignore
+scripts/ export-ignore
+tests/ export-ignore
+examples/ export-ignore
+logs/ export-ignore
+.github/ export-ignore
+.devcontainer/ export-ignore
+.vscode/ export-ignore
+start_environment.sh export-ignore

@@ -22,3 +22,9 @@ docker/docker-compose.yaml
 scripts/request.js
 simulate_disk_full.txt
 host/simulate_disk_full.txt
+docker/*
+examples/*
+host/*
+logs/*
+scripts/*
+.devcontainer

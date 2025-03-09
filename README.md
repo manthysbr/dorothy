@@ -1,5 +1,3 @@
-# Dorothy: API Middleware de Automação Inteligente de Respostas a Alertas
-
 ## Visão Geral Técnica
 
 Esse é um projeto que tem como idéia automatizar boa parte do trabalho de toil em SRE, utilizando ferramentas open-source e inteligência artiticial.

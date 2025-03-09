@@ -91,7 +91,7 @@ class OllamaService:
                     timeout=60.0
                 )
                 
-                # Log do tempo de resposta
+                # Log do tempo de resposta do modelo
                 processing_time = time.time() - start_time
                 logger.info(f"Ollama respondeu em {processing_time:.2f} segundos")
                 

@@ -48,7 +48,7 @@ mkdir -p /var/log/results
 } | tee "$LOG_FILE"
 
 # Desativar o problema simulado
-echo "30" > /etc/zabbix/scripts/simulate_disk_full.txt
+echo "30" > /etc/zabbix/scripts/simulate_disk_full.txt 
 echo "Problema de disco simulado DESATIVADO após limpeza"
 
 # Simulação bem-sucedida

@@ -1,26 +1,31 @@
 ## Visão Geral Técnica
 
 Esse é um projeto que tem como idéia automatizar boa parte do trabalho de toil em SRE, utilizando ferramentas open-source e inteligência artiticial.
-Basicamente a idéia é ter uma API entre o `alert manager` ( nesse caso aqui estou utilizando Zabbix 7 ) e uma `plataforma de automação` ( aqui eu utilizei o Rundeck ), que tenha o poder de tomar decisões baseados no alerta e ( em breve ) no histórico do host, abstraindo toda uma camada de ações manuais. Aqui tentei ser preditivo e generalista ao máximo, pensando apenas em operações básicas de limpeza de disco, restart de serviço, coisas comumente operadas manualmente em operações de larga escala. 
 
+Basicamente a idéia é ter uma API entre o `alert manager` ( nesse caso aqui estou utilizando Zabbix 7 ) e uma `plataforma de automação` ( aqui eu utilizei o Rundeck ), que tenha o poder de tomar decisões baseados no alerta e no histórico do host, abstraindo toda uma camada de ações manuais. 
 
+Aqui tentei ser preditivo e generalista ao máximo, pensando apenas em operações básicas de limpeza de disco, restart de serviço, coisas comumente operadas manualmente em operações de larga escala. 
+
+Muitos serviços tem padrões entre eles, e já vi em muitos lugares serviços simples ficarem deteriorados por longos tempos por conta de uma necessidade específica ou ação manual que poderia ser automatizada. Desde então tenho desenvolvido essa solução `ad-hoc` como projeto de estudo para fazer com que agentes especializados façam ações menores sem a necessidade de um trigger manual. 
+
+## Formato
 
 ```
 ┌─────────────┐        ┌─────────────┐        ┌─────────────┐
-│  Sistema de │        │    API      │        │ Plataforma  │
-│ Monitoração ├───────►│ Middleware  ├───────►│     de      │
-│  (Zabbix)   │        │  (FastAPI)  │        │ Automação   │
+│ AlertManager│        │    API      │        │ Plataforma  │
+│             ├───────►│             ├───────►│     de      │
+│  (Zabbix)   │        │             │        │ Automação   │
 └─────────────┘        └──────┬──────┘        │  (Rundeck)  │
                               │               └─────────────┘
                        ┌──────▼──────┐
-                       │  LLM Local  │
+                       │ LLM tomando |
+                       |  a decisão  │
                        │  (Ollama)   │
                        └─────────────┘
 ```
 
-## Arquitetura e Comunicação
 
-A Dorothy implementa um padrão de arquitetura de middleware assíncrono, posicionando-se entre sistemas de monitoramento (como Zabbix) e plataformas de automação (como Rundeck). O fluxo de dados é totalmente assíncrono, utilizando as capacidades do FastAPI e `httpx` para comunicações não-bloqueantes.
+A API implementa um padrão de arquitetura de middleware assíncrono, posicionando-se entre sistemas de monitoramento (como Zabbix) e plataformas de automação (como Rundeck). O fluxo de dados é totalmente assíncrono, utilizando as capacidades do FastAPI e `httpx` para comunicações não-bloqueantes e escalabilidade.
 
 ### Fluxo de Processamento Detalhado
 
@@ -28,20 +33,16 @@ A Dorothy implementa um padrão de arquitetura de middleware assíncrono, posici
    - Alertas são recebidos via endpoints REST (`/api/v1/zabbix/alert`)
    - O payload é validado utilizando modelos Pydantic
    - Informações são normalizadas para processamento posterior
-
 2. **Análise por LLM**:
    - O serviço `OllamaService` formata prompts especializados
-   - Utiliza a técnica de "function calling" com o modelo Llama 3.2
+   - Utiliza a técnica de "function calling" com o modelo Llama 3.2 para fornecer ao modelo as ferramentas para debugar aquela situação ( ex. limpeza de disco, restart de serviço entre outras coisas... )
    - Sistema de prompts duplos (system prompt + user prompt) para contexto e dados
    - Comunicação com Ollama via HTTP assíncrono usando `httpx`
-
 3. **Mapeamento e Execução**:
    - O serviço `RundeckService` traduz decisões do LLM para jobs de automação
    - Implementa comunicação via webhooks para acionar scripts
    - Adiciona metadados de rastreabilidade (IDs de alerta, timestamps)
    - Oferece modo simulação para testes sem execução real
-
-## Componentes Técnicos Principais
 
 ### `OllamaService`
 
@@ -69,14 +70,6 @@ Implementa a integração com o motor de modelo de linguagem ( llama3.2 ), utili
 }
 ```
 
-Características técnicas:
-
-- **Definição Estruturada de Ferramentas**: Define schema JSON para as funções que o LLM pode chamar
-- **Processamento Assíncrono**: Utiliza `async/await` para não bloquear durante as chamadas ao LLM
-- **Enriquecimento de Dados**: Implementa processamento contextual para lidar com dados incompletos
-- **Validação de Parâmetros**: Valida e normaliza os parâmetros retornados pelo LLM
-- **Mapeamento Dinâmico**: Traduz funções para jobs específicos do Rundeck
-
 ### `RundeckService`
 
 Gerencia a comunicação com a plataforma de automação através de webhooks RESTful:
@@ -90,17 +83,9 @@ self.webhook_urls = {
 }
 ```
 
-Características técnicas:
-
-- **Gestão de Webhooks**: Mapeia jobs para URLs de webhook para acionar scripts no Rundeck
-- **Resiliência**: Implementa fallback para webhooks não encontrados
-- **Rastreabilidade**: Adiciona IDs de alerta e timestamps para correlação
-- **Comunicação Assíncrona**: Utiliza `httpx.AsyncClient` para chamadas não-bloqueantes
-- **Modo de Simulação**: Permite testes sem execução real através de flag de configuração
-
 ## Capacidades de Análise e Resolução
 
-A API utiliza function calling com o LLM para determinar a ação mais apropriada entre:
+Até então, o projeto utiliza function calling com o LLM para determinar a ação mais apropriada entre:
 
 1. **`cleanup_disk`**: Limpeza de sistemas de arquivos com espaço crítico
    - Parâmetros: path, min_size, file_age
@@ -122,40 +107,5 @@ A API utiliza function calling com o LLM para determinar a ação mais apropriad
    - Parâmetros: team, priority, message
    - Envia alertas para canais de comunicação apropriados (email, chat, SMS)
 
-## System Prompts
-
-```python
-def _create_system_prompt(self) -> str:
-    """
-    Cria um prompt de sistema para o modelo.
-    """
-    return """
-    Você é um sistema especializado na análise de alertas do Zabbix e na 
-    automação de respostas a incidentes. Sua tarefa é analisar alertas e
-    determinar a ação mais adequada baseada nas informações fornecidas.
-    
-    # Instruções técnicas para análise e tomada de decisão...
-    """
-```
-
-A idéia aqui é:
-- Fornecer contexto para interpretação de dados incompletos ou ambíguos
-- Limitar o escopo das respostas para o formato de function calling
-
-## Mecanismos de Fallback e Resiliência
-
-A API implementa múltiplas camadas de fallback para garantir resiliência:
-
-1. **Fallback de Função**: Se o LLM falhar em selecionar uma função apropriada
-2. **Fallback de Argumentos**: Se os parâmetros fornecidos forem inválidos ou incompletos
-3. **Fallback de Webhook**: Se o webhook mapeado não for encontrado
-4. **Fallback de Comunicação**: Se a chamada ao LLM ou Rundeck falhar
-
-```python
-def _create_fallback_action(self, reason: str, alert_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Cria uma ação de fallback para casos onde não é possível
-    determinar uma ação automática ou ocorre algum erro.
-    """
-    # Lógica de geração de fallback...
-```
+### Conteiners
+Eu utilizei como teste conteiners para simular as situações ( existe um docker compose com as configurações dentro de utils/docker ) 
